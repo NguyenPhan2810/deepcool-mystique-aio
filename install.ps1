@@ -23,7 +23,7 @@ $source = Join-Path $PSScriptRoot 'artifacts\publish'
 $target = Join-Path $env:ProgramFiles 'Mystique'
 
 if (-not (Test-Path (Join-Path $source 'MystiqueService.exe'))) {
-    throw "Build output not found in $source. Run: dotnet publish dev/MystiqueService -c Release -o artifacts/publish"
+    throw "Build output not found in $source. Run: dotnet publish MystiqueService -c Release -o artifacts/publish"
 }
 
 # The tool and the service cannot both own the WinUSB handle. Only one process

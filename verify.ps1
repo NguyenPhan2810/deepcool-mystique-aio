@@ -45,7 +45,7 @@ if ($bad) { Write-Host "   errors found:" -ForegroundColor Red; $bad } else { Wr
 # The identifier is not hardcoded here - writing it into a tracked file would
 # leak the very value this check exists to catch. Supply it out of band:
 #   $env:MYSTIQUE_DEVICE_ID = (& "$env:ProgramFiles\Mystique\..." )  # or paste it
-# Get it from: dotnet run --project dev/MystiqueUsbTool -- info --show-device-id
+# Get it from: dotnet run --project MystiqueUsbTool -- info --show-device-id
 if ($env:MYSTIQUE_DEVICE_ID) {
     $leak = Select-String -Path $log -Pattern ([regex]::Escape($env:MYSTIQUE_DEVICE_ID))
     if ($leak) {
