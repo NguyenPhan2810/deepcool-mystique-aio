@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Mystique.Core.Contracts</RootNamespace>
+  </PropertyGroup>
+</Project>

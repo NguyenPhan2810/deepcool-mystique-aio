@@ -1,4 +1,6 @@
 <Solution>
+  <Project Path="Mystique.Core.Contracts/Mystique.Core.Contracts.csproj" />
+  <Project Path="Mystique.Core.Device/Mystique.Core.Device.csproj" />
   <Project Path="Mystique.Tests/Mystique.Tests.csproj" />
   <Project Path="MystiqueUsbTool/MystiqueUsbTool.csproj" />
   <Project Path="SensorPipeProbe/SensorPipeProbe.csproj" />

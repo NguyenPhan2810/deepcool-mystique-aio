@@ -17,4 +17,9 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Mystique.Core.Contracts\Mystique.Core.Contracts.csproj" />
+    <ProjectReference Include="..\Mystique.Core.Device\Mystique.Core.Device.csproj" />
+  </ItemGroup>
+
 </Project>

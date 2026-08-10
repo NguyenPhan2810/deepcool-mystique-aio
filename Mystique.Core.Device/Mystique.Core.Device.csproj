@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Mystique.Core.Device</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Mystique.Core.Contracts\Mystique.Core.Contracts.csproj" />
+  </ItemGroup>
+</Project>

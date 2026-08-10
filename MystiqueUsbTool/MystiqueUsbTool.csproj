@@ -1,4 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\Mystique.Core.Contracts\Mystique.Core.Contracts.csproj" />
+    <ProjectReference Include="..\Mystique.Core.Device\Mystique.Core.Device.csproj" />
+  </ItemGroup>
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <AssemblyName>MystiqueUsbTool</AssemblyName>
