@@ -203,7 +203,7 @@ public class MystiquePacketsTests
         string formatted = MystiquePackets.FormatResponse(response);
 
         Assert.Equal("55 2E 12 00 .. .. .. .. .. .. .. ..", formatted);
-        Assert.DoesNotContain("32 36", formatted);
+        Assert.DoesNotContain("41 41", formatted);
     }
 
     [Fact]

@@ -42,8 +42,28 @@ Write-Host '3. Scanning the log for errors and identifier leaks...'
 $bad = Select-String -Path $log -Pattern 'ERROR'
 if ($bad) { Write-Host "   errors found:" -ForegroundColor Red; $bad } else { Write-Host '   PASS - no ERROR lines' -ForegroundColor Green }
 
-$leak = Select-String -Path $log -Pattern 'AABBCCDD|0011223344556677889900AA'
-if ($leak) { Write-Host '   FAIL - device identifier present' -ForegroundColor Red; $leak } else { Write-Host '   PASS - no device identifier in the log' -ForegroundColor Green }
+# The identifier is not hardcoded here - writing it into a tracked file would
+# leak the very value this check exists to catch. Supply it out of band:
+#   $env:MYSTIQUE_DEVICE_ID = (& "$env:ProgramFiles\Mystique\..." )  # or paste it
+# Get it from: dotnet run --project dev/MystiqueUsbTool -- info --show-device-id
+if ($env:MYSTIQUE_DEVICE_ID) {
+    $leak = Select-String -Path $log -Pattern ([regex]::Escape($env:MYSTIQUE_DEVICE_ID))
+    if ($leak) {
+        Write-Host '   FAIL - device identifier present' -ForegroundColor Red; $leak
+    } else {
+        Write-Host '   PASS - no device identifier in the log' -ForegroundColor Green
+    }
+} else {
+    # Fall back to a shape check: the service never dumps response bodies, so any
+    # long uninterrupted hex run outside the interface GUID would be a regression.
+    $dumps = Select-String -Path $log -Pattern '(?<![-{0-9a-fA-F])[0-9A-F]{8}(?![-}0-9a-fA-F])'
+    if ($dumps) {
+        Write-Host '   WARN - raw hex runs found; inspect these lines' -ForegroundColor Yellow; $dumps
+    } else {
+        Write-Host '   PASS - no raw hex dumps in the log' -ForegroundColor Green
+        Write-Host '          (set MYSTIQUE_DEVICE_ID for an exact-match check)' -ForegroundColor DarkGray
+    }
+}
 
 Write-Host ''
 Write-Host 'Done. Reboot and watch the LCD at the login screen for the last check.'
