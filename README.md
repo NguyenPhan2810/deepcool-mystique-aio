@@ -1,43 +1,127 @@
-# Mystique USB audit
+# Mystique LCD telemetry
 
-Local diagnostics and a live-telemetry workaround for the DeepCool Mystique LCD.
-The USB tool contains no firmware flashing path.
+Drives the DeepCool Mystique 360 AIO's LCD with live system telemetry, from a
+Windows service that starts at boot — the panel is live at the login screen,
+before anyone logs on.
 
-## Result
+No firmware flashing path exists anywhere in this repository.
 
-- The device's Full-Speed USB link is not the refresh bottleneck.
-- A 90-update synthetic test and a 15-update real-sensor test completed with no
-  USB write or response failures.
-- DeepCool 1.2.12 repeatedly tears down a healthy WinUSB handle. The replacement
-  sender reads the existing DeepCool Sensor Bridge named pipe and sends the
-  intended 48-byte Machine Info packet once per sensor sample.
+## Why this exists
 
-## Run live telemetry
+DeepCool's own app drives the panel, but it repeatedly tears down a healthy
+WinUSB handle, and it only runs once you are logged in. This replaces the
+telemetry path with a service that owns the device handle for its lifetime and
+recovers from every failure instead of exiting.
 
-DeepCool.exe must be closed because only one process can own the WinUSB device.
-The Deep Cool Display and Helper services remain running to supply sensor data.
+## What it does and does not do
+
+- **Does:** Machine Info mode — CPU temperature, CPU usage, CPU clock, memory
+  load, GPU temperature — plus screen rotation, from boot, with automatic
+  recovery from sensor-bridge restarts, USB replug, sleep/resume, and DeepCool
+  contention.
+- **Does not:** images, GIFs, or wallpaper modes. That is what the DeepCool app
+  is for, and this yields the device to it on sight.
+
+## Refresh rate
+
+Roughly one update per second. The limit is the DeepCool Sensor Bridge's push
+cadence (~1.08 s measured), **not** the device's Full-Speed USB link — a 48-byte
+frame once per second is a rounding error against 12 Mbps. Going faster means
+replacing the sensor source, which is a separate project.
+
+## Requirements
+
+- Windows 11, .NET 10 SDK to build
+- The two DeepCool services must stay **running** — they supply the sensor data:
+  - `Deep Cool Helper Service`
+  - `Deep Cool Display Service`
+- `DeepCool.exe` itself should **not** be running. Only one process can own the
+  WinUSB handle. The service yields automatically if you launch it, and
+  reacquires when you close it, so this is a preference rather than a rule.
+
+## Install
 
 ```powershell
-& 'C:\Users\nguyen\usb-audit\MystiqueUsbTool\bin\Release\net10.0-windows\MystiqueUsbTool.exe' live 0
+dotnet publish MystiqueService -c Release -o artifacts/publish
 ```
 
-`0` means run until Ctrl+C. A positive value sends that many updates, for
-example `live 30` for a 30-update test.
-
-To stop a hidden/background instance:
+Then from an **elevated** PowerShell:
 
 ```powershell
-Stop-Process -Name MystiqueUsbTool
+powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
-Current background logs are written to:
+The service registers as `MystiqueService`, auto-start, running as LocalSystem.
+Expect the first frame at roughly boot + 25 s, gated by USB enumeration.
 
-- `C:\Users\nguyen\usb-audit\mystique-live.log`
-- `C:\Users\nguyen\usb-audit\mystique-live-error.log`
+Uninstall:
+
+```powershell
+& "$env:ProgramFiles\Mystique\MystiqueService.exe" uninstall
+```
+
+Logs, size-capped and rotated:
+
+```
+%ProgramData%\Mystique\logs\mystique.log
+```
+
+State transitions are logged, plus one summary line per 300 updates. There is
+deliberately no per-update line.
+
+## Run in the foreground
+
+Useful for watching it work. Stop the service first, or the two will fight over
+the handle:
+
+```powershell
+Stop-Service MystiqueService
+& "$env:ProgramFiles\Mystique\MystiqueService.exe" --console
+```
+
+## Diagnostics
+
+`MystiqueUsbTool` is the hardware probe. It needs the service stopped, since
+only one process can hold the device.
+
+```powershell
+dotnet run --project MystiqueUsbTool -c Release -- <verb>
+```
+
+| Verb | Does |
+|---|---|
+| `pipes` | list endpoints (default) |
+| `status` | report display mode and rotation |
+| `info` | device info response |
+| `init [rotation]` | run the Machine Info handshake; rotation `0`-`3` = 0/90/180/270 degrees |
+| `stream [seconds]` | synthetic telemetry, one update per second |
+| `live [updates]` | real telemetry; `0` runs until Ctrl+C |
+
+Add `--show-device-id` to reveal the per-device identifier, which is **redacted
+by default**. It is stored in responses as hex byte pairs, so a text search for
+it will not find it — which is why log files are excluded from this repository
+wholesale rather than scrubbed.
+
+## Layout
+
+| Project | Contains |
+|---|---|
+| `Mystique.Core.Contracts` | state, telemetry, command ids — no device access |
+| `Mystique.Core.Device` | packet format, WinUSB interop, presence detection, sensor bridge, backoff |
+| `MystiqueService` | the Windows service, supervisor state machine, logging, installer |
+| `MystiqueUsbTool` | diagnostic CLI |
+| `Mystique.Tests` | xUnit; filter `Category!=Hardware` to skip anything touching the device |
+
+```powershell
+dotnet test Mystique.slnx -c Release --filter "Category!=Hardware"
+```
+
+Design notes are in `docs/superpowers/`.
 
 ## Firmware safety
 
 The installed DeepCool app's own `app/check-local-fw-update` check returned
 `data: false` for its bundled `MYSTIQUE_2.70.bin`. Do not force that image by
-filename alone. Firmware flashing remains possible after an image and target
-compatibility are independently validated.
+filename alone. No firmware image is present in this repository and no firmware
+capability ships here; flashing would remain possible only after an image and
+target compatibility were independently validated.

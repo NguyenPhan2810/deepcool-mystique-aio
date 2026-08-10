@@ -11,3 +11,6 @@ obj/
 
 # Vendor material extracted from DeepCool's app.asar. Not ours to publish.
 deepcool-worker.js
+
+# Publish staging directory
+artifacts/

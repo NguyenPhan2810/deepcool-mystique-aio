@@ -20,6 +20,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Mystique.Core.Contracts\Mystique.Core.Contracts.csproj" />
     <ProjectReference Include="..\Mystique.Core.Device\Mystique.Core.Device.csproj" />
+    <ProjectReference Include="..\MystiqueService\MystiqueService.csproj" />
   </ItemGroup>
 
 </Project>
