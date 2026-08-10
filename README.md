@@ -42,7 +42,7 @@ replacing the sensor source, which is a separate project.
 ## Install
 
 ```powershell
-dotnet publish MystiqueService -c Release -o artifacts/publish
+dotnet publish dev/MystiqueService -c Release -o artifacts/publish
 ```
 
 Then from an **elevated** PowerShell:
@@ -85,7 +85,7 @@ Stop-Service MystiqueService
 only one process can hold the device.
 
 ```powershell
-dotnet run --project MystiqueUsbTool -c Release -- <verb>
+dotnet run --project dev/MystiqueUsbTool -c Release -- <verb>
 ```
 
 | Verb | Does |
@@ -104,7 +104,10 @@ wholesale rather than scrubbed.
 
 ## Layout
 
-| Project | Contains |
+Source lives under `dev/`; `docs/`, the install scripts, and this file stay at
+the repository root.
+
+| Project (under `dev/`) | Contains |
 |---|---|
 | `Mystique.Core.Contracts` | state, telemetry, command ids — no device access |
 | `Mystique.Core.Device` | packet format, WinUSB interop, presence detection, sensor bridge, backoff |
@@ -113,7 +116,7 @@ wholesale rather than scrubbed.
 | `Mystique.Tests` | xUnit; filter `Category!=Hardware` to skip anything touching the device |
 
 ```powershell
-dotnet test Mystique.slnx -c Release --filter "Category!=Hardware"
+dotnet test dev/Mystique.slnx -c Release --filter "Category!=Hardware"
 ```
 
 Design notes are in `docs/superpowers/`.
