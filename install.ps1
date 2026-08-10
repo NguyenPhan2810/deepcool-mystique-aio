@@ -8,6 +8,17 @@
 #Requires -RunAsAdministrator
 $ErrorActionPreference = 'Stop'
 
+# Transcript so the outcome survives the window being closed.
+$transcript = Join-Path $env:TEMP 'mystique-install.log'
+Start-Transcript -Path $transcript -Force | Out-Null
+trap {
+    Write-Host "INSTALL FAILED: $_" -ForegroundColor Red
+    Stop-Transcript | Out-Null
+    Write-Host "Press Enter to close."
+    [void][Console]::ReadLine()
+    exit 1
+}
+
 $source = Join-Path $PSScriptRoot 'artifacts\publish'
 $target = Join-Path $env:ProgramFiles 'Mystique'
 
@@ -44,3 +55,4 @@ Write-Host ''
 Write-Host 'Log: ' -NoNewline
 Write-Host (Join-Path $env:ProgramData 'Mystique\logs\mystique.log') -ForegroundColor Yellow
 Write-Host 'The LCD should be updating now, and again at the login screen after a reboot.'
+Stop-Transcript | Out-Null

@@ -37,9 +37,13 @@ internal static class ServiceInstaller
         // at boot+20.0 s but its pipe does not exist until boot+24.2 s. SCM waits for
         // RUNNING, not for ready, so the dependency buys nothing the retry loop must
         // provide anyway - while adding a hard failure if DeepCool renames it.
+        // sc.exe wants each "name=" and its value as SEPARATE argv tokens. Passing
+        // "binPath= <value>" as one token makes sc reject the whole command.
+        // The inner exe path stays quoted because Program Files contains a space.
         Run("create", MystiqueWindowsService.WindowsServiceName,
-            $"binPath= \"\\\"{exe}\\\" --service\"", "start= auto",
-            "DisplayName= Mystique LCD Telemetry");
+            "binPath=", $"\"{exe}\" --service",
+            "start=", "auto",
+            "DisplayName=", "Mystique LCD Telemetry");
 
         Run("description", MystiqueWindowsService.WindowsServiceName,
             "Drives the DeepCool Mystique LCD with system telemetry from boot.");
@@ -51,7 +55,8 @@ internal static class ServiceInstaller
 
         // Crash backstop, distinct from the in-process reconnect loop.
         Run("failure", MystiqueWindowsService.WindowsServiceName,
-            "reset= 86400", "actions= restart/5000/restart/10000/restart/30000");
+            "reset=", "86400",
+            "actions=", "restart/5000/restart/10000/restart/30000");
 
         Run("start", MystiqueWindowsService.WindowsServiceName);
 
@@ -98,16 +103,35 @@ internal static class ServiceInstaller
 
     private static void Run(string verb, bool allowFailure, params string[] rest)
     {
-        var startInfo = new ProcessStartInfo("sc.exe") { UseShellExecute = false };
+        var startInfo = new ProcessStartInfo("sc.exe")
+        {
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
         startInfo.ArgumentList.Add(verb);
         foreach (string argument in rest)
             startInfo.ArgumentList.Add(argument);
 
         using Process process = Process.Start(startInfo)
             ?? throw new InvalidOperationException("Could not start sc.exe");
+
+        string output = process.StandardOutput.ReadToEnd();
+        string error = process.StandardError.ReadToEnd();
         process.WaitForExit();
 
-        if (process.ExitCode != 0 && !allowFailure)
-            throw new InvalidOperationException($"sc.exe {verb} failed with exit code {process.ExitCode}");
+        if (process.ExitCode == 0)
+            return;
+
+        // sc.exe reports the real reason on stdout, so surface it rather than
+        // leaving the caller with a bare exit code to guess from.
+        string detail = string.Join(' ', $"{output} {error}".Split(
+            (char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+        if (!allowFailure)
+            throw new InvalidOperationException(
+                $"sc.exe {verb} failed with exit code {process.ExitCode}: {detail}");
+
+        Console.WriteLine($"(sc.exe {verb} returned {process.ExitCode}: {detail})");
     }
 }
