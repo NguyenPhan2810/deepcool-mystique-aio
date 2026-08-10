@@ -1,0 +1,13 @@
+# Build output
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+# Logs — these contain the raw device identifier stored as hex byte pairs.
+# Never scrub and commit; exclude wholesale.
+*.log
+
+# Vendor material extracted from DeepCool's app.asar. Not ours to publish.
+deepcool-worker.js
