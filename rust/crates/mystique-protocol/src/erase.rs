@@ -46,7 +46,7 @@ mod tests {
         // The old mode write was 0x03, whose meaning is unknown. Erase is a separate
         // action and cannot quietly acquire a selector byte.
         let packet = erase_stored_images();
-        assert_ne!(packet.command, Command::InitStep03);
+        assert_ne!(packet.command, Command::SelectMode);
         assert_ne!(packet.code(), 0x03);
     }
 }

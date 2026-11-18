@@ -1,6 +1,7 @@
 # Handover — DeepCool MYSTIQUE 360 LCD
 
-Last updated: 2026-11-18, late. Device `3633:0009`. Nothing is committed to git.
+Last updated: 2026-11-18, late. Device `3633:0009`. Committed and pushed to Forgejo at
+`34aa41a`; work after that commit is uncommitted.
 
 Read this first, then jump to whichever detail file you need.
 
@@ -16,16 +17,27 @@ A cross-platform driver exists and has been **verified on the real panel**:
 - The old `MystiqueService` (C#) is the current production driver on Windows and still works.
   The Rust daemon is its replacement and has driven the panel with the service stopped.
 
-357+ tests green at the last run; all four gates (`build`, `test`, `clippy -D warnings`,
+378+ tests green at the last run; all four gates (`build`, `test`, `clippy -D warnings`,
 `fmt --check`) pass. File-size rules are in `AGENTS.md`.
+
+## Stream rate
+
+1 Hz by default, **30 Hz measured clean** and selectable at runtime
+(`set_stream_rate {"hz":30}`). The link was never the limit: the panel acknowledges a frame
+in **0.49 ms**, and 30 Hz is 0.19% of the bus. The old ceiling was a blocking read on the
+vendor sensor bridge, which pushes once per ~1.1 s; it now runs on its own thread and the
+sampler copies the newest snapshot. Above 30 Hz the Windows 15.6 ms timer grain appears.
+Numbers still change at the sensor rate — the frame rate buys smoothness, not freshness.
+Full measurements, including the untested Recording-graph question, in
+`findings/20-stream-rate.md`.
 
 ## The protocol is fully mapped
 
-Every command byte, from captures and hardware tests. Full detail in `16`–`19`.
+Every command byte, from captures and hardware tests. Full detail in `16`–`20`.
 
 | Byte | Meaning |
 |---|---|
-| `0x01` | telemetry frame, 39-byte payload |
+| `0x01` | telemetry frame, 39-byte payload: CPU °C `[0]`, CPU % `[3]`, MEM % `[6]`, GPU °C `[11]`, clock GHz `[18]`, clock fraction `[20]`, **CPU fan RPM `[21..22]`**, **pump RPM `[24..25]`** |
 | `0x02` | `[idle screen, gyro, rotation, RGB sync, brightness]` |
 | `0x03` | display mode: 1 Monitor, 2 Media, 3 Recording |
 | `0x04` | `[main, style, 0, aux]` — index 2 never non-zero |
@@ -55,8 +67,8 @@ the driver crops to 480×640 by default. Content id is a per-upload tag, not a h
 ## Verified on hardware from our own code
 
 Brightness, rotation (gyro must be off), gyro toggle, main area, style type, aux, mode switching,
-recording options, labels, image/GIF upload, erase-to-return-to-dashboard, telemetry streaming,
-daemon surviving UI close.
+recording options, labels, image/GIF upload, erase-to-return-to-dashboard, telemetry streaming
+at 1–30 Hz, fan and pump RPM on the dual dial, daemon surviving UI close.
 
 ## Not verified / hazards
 
@@ -65,6 +77,15 @@ daemon surviving UI close.
 - **Stored media holds the display**: after an upload the panel shows the image regardless of
   mode until `0x14` erase. That is content presence, not a mode flag.
 - `0x04` index 2 is always zero; reserved, not understood.
+- `0x01[8]` varies in vendor captures (`0x28`…`0xF7`) and its meaning is unresolved; our
+  `0x05/0x06/0x09` is an inherited guess.
+- **Fan RPM needs the vendor helper on Windows.** `Deep Cool Helper Service`
+  (`SensorBridgeServer.exe`) is the only fan source; without it the frame carries 0 and the
+  panel draws `0 RPM`. Linux reads hwmon fan channels, with the pump only when a channel is
+  labelled `pump`.
+- **Recording mode graphs at 30 Hz are untested.** If the panel advances those graphs per
+  received frame, a high rate will scroll them proportionally faster than the vendor app.
+  Check this before making 30 Hz a default; 1 Hz remains the default.
 - The UI's browser-pass was done with a stubbed bridge; the live daemon→panel event path was
   verified separately in the terminal but should be re-checked in the final UI.
 - **Linux has not been run at all.** Everything so far is Windows.
@@ -79,6 +100,11 @@ cargo build --workspace
 
 The daemon owns the device, so `MystiqueService` must be stopped and `DeepCool.exe` closed
 (it leaves six background processes that keep the device open even after the window closes).
+
+Sensors come from **Deep Cool Helper Service** (`SensorBridgeServer.exe`), which runs
+independently of `MystiqueService` and pushes one snapshot per ~1.1 s. The daemon reads it on
+a worker thread and falls back to `sysinfo` when it is absent or stalled; Linux always uses
+`procfs`/`sysinfo`.
 
 Direct CLI (takes the device, so stop the daemon/service first):
 
@@ -101,15 +127,20 @@ replug; restarting the service is not enough.
 | `06` / `12` | image protocol; the 240-derived version and the corrected 360 capture |
 | `10` / `11` | command map, pipe coverage, sweep results |
 | `13`–`19` | settings decode, UI inventory, hardware verification, `0x04` layout, mode, RGB/recording, probe results |
+| `20-stream-rate.md` | why the stream was 1 Hz, the sampler fix, the measured ramp to 30 Hz |
+| `21-fan-and-pump-rpm.md` | fan/pump RPM bytes, and the clock-fraction bug that filled them |
 | `04-linux-landscape.md` | prior art, architecture rationale, udev/systemd |
 | `design/direction-approved.md` | UI direction history, including A being rejected |
 | `../AGENTS.md` | binding conventions |
 
 ## In flight
 
-An agent is finishing the UI rework: dark mode, deduplicated values, every vendor control
-visible, and a raw-packet panel. After that: a stream-rate control (1/5/10/20/30 Hz — the bus
-allows far more than 1 Hz; the old limit was DeepCool's sensor bridge), then Linux packaging.
+Nothing. The stream-rate control (1/5/10/20/30 Hz presets, transfer counters in the session
+sheet) and the mode selector's `0x03` write are both shipped and working against the daemon.
+
+Next milestone: **Linux packaging** — udev rule, systemd unit, and the first build on the
+target OS. Everything so far has run on Windows; that is the one claim the project still
+cannot make.
 
 ## Machine-change log (for honesty, not blame)
 

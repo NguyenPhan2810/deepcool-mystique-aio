@@ -20,6 +20,14 @@ pub async fn stop_telemetry(state: State<'_, AppState>) -> Result<TelemetryStatu
     call_data(&state.client, cmd::STOP_STREAM, json!({})).await
 }
 
+#[tauri::command]
+pub async fn set_stream_rate(
+    state: State<'_, AppState>,
+    hz: u32,
+) -> Result<TelemetryStatus, CommandError> {
+    call_data(&state.client, cmd::SET_STREAM_RATE, json!({ "hz": hz })).await
+}
+
 /// The daemon has no separate `telemetry_status`; the stream's state travels inside
 /// `device_state`. This projects it so the frontend keeps one shape.
 #[tauri::command]

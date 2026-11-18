@@ -19,6 +19,8 @@ pub mod cmd {
     pub const SET_IDLE_SCREEN: &str = "set_idle_screen";
     pub const SET_RGB_SYNC: &str = "set_rgb_sync";
     pub const SET_RECORDING: &str = "set_recording";
+    pub const SET_MODE: &str = "set_mode";
+    pub const SET_FAN_IO: &str = "set_fan_io";
     pub const SET_AREAS: &str = "set_areas";
     pub const SET_MEDIA_TIMING: &str = "set_media_timing";
     pub const SET_LABELS: &str = "set_labels";
@@ -30,6 +32,9 @@ pub mod cmd {
     pub const UPLOAD_GIF: &str = "upload_gif";
     pub const START_STREAM: &str = "start_stream";
     pub const STOP_STREAM: &str = "stop_stream";
+    /// Changes the telemetry period without stopping the stream. `hz` is the rate;
+    /// the panel is not the limit, the host timer is.
+    pub const SET_STREAM_RATE: &str = "set_stream_rate";
     /// Stops the daemon itself: the reply goes out first, then the stream, the panel and
     /// the control endpoint are released and the process exits.
     pub const SHUTDOWN: &str = "shutdown";
@@ -49,6 +54,8 @@ pub mod cmd {
         SET_IDLE_SCREEN,
         SET_RGB_SYNC,
         SET_RECORDING,
+        SET_MODE,
+        SET_FAN_IO,
         SET_AREAS,
         SET_MEDIA_TIMING,
         SET_LABELS,
@@ -59,6 +66,7 @@ pub mod cmd {
         UPLOAD_GIF,
         START_STREAM,
         STOP_STREAM,
+        SET_STREAM_RATE,
         SHUTDOWN,
     ];
 
@@ -135,6 +143,27 @@ pub mod args {
         pub enabled: bool,
     }
 
+    /// Used by `set_stream_rate`. The UI offers 1/5/10/20/30; the daemon accepts more
+    /// because the link does.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+    pub struct StreamRate {
+        pub hz: u32,
+    }
+
+    /// Used by `set_mode`: `1` Monitor, `2` Media, `3` Recording (`0x03`).
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+    pub struct Mode {
+        pub mode: u8,
+    }
+
+    /// Used by `set_fan_io`. Each value is `cpu`, `pump` or `none`; it selects which
+    /// sensor feeds that dial. Host routing, not a device command.
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    pub struct FanIo {
+        pub cpu: String,
+        pub pump: String,
+    }
+
     /// `0x05`: the two recording graph options.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
     pub struct Recording {
@@ -152,8 +181,8 @@ pub mod args {
         pub payload: Vec<u8>,
         /// `init` or `data`.
         pub pipe: String,
-        /// Build and print the packet, but do not send it.
-        #[serde(default)]
+        /// Build and print the packet, but do not send it. Required, so a client cannot
+        /// omit it and send by accident.
         pub dry_run: bool,
     }
 

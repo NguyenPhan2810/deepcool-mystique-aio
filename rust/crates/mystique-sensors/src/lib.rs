@@ -25,6 +25,10 @@ pub struct SensorSample {
     pub memory_load_percent: Option<u8>,
     pub gpu_temperature_c: Option<u8>,
     pub cpu_clock_mhz: Option<u16>,
+    /// `Fan list -> "AIO Pump"` on Windows; a hwmon channel labelled "pump" on Linux.
+    pub pump_rpm: Option<u16>,
+    /// `Fan list -> "CPU"` on Windows; the first unlabelled fan channel on Linux.
+    pub cpu_fan_rpm: Option<u16>,
 }
 
 impl SensorSample {
@@ -39,6 +43,8 @@ impl SensorSample {
             memory_load_percent: self.memory_load_percent.unwrap_or(0),
             gpu_temperature_c: self.gpu_temperature_c.unwrap_or(0),
             cpu_clock_mhz: self.cpu_clock_mhz.unwrap_or(0),
+            pump_rpm: self.pump_rpm.unwrap_or(0),
+            cpu_fan_rpm: self.cpu_fan_rpm.unwrap_or(0),
         }
     }
 
@@ -58,6 +64,12 @@ impl SensorSample {
         }
         if self.cpu_clock_mhz.is_none() {
             missing.push("cpu_clock_mhz");
+        }
+        if self.pump_rpm.is_none() {
+            missing.push("pump_rpm");
+        }
+        if self.cpu_fan_rpm.is_none() {
+            missing.push("cpu_fan_rpm");
         }
         missing
     }
@@ -111,7 +123,7 @@ mod tests {
     fn absent_fields_become_zero_not_a_panic() {
         let frame = SensorSample::default().to_frame();
         assert_eq!(frame, TelemetryFrame::default());
-        assert_eq!(SensorSample::default().missing_fields().len(), 5);
+        assert_eq!(SensorSample::default().missing_fields().len(), 7);
     }
 
     #[test]
@@ -122,11 +134,15 @@ mod tests {
             memory_load_percent: Some(51),
             gpu_temperature_c: Some(60),
             cpu_clock_mhz: Some(4900),
+            pump_rpm: Some(3341),
+            cpu_fan_rpm: Some(1326),
         };
         assert!(sample.missing_fields().is_empty());
         let frame = sample.to_frame();
         assert_eq!(frame.cpu_temperature_c, 44);
         assert_eq!(frame.cpu_clock_mhz, 4900);
+        assert_eq!(frame.pump_rpm, 3341);
+        assert_eq!(frame.cpu_fan_rpm, 1326);
     }
 
     #[test]

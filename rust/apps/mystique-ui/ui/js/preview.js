@@ -68,6 +68,10 @@ function renderMonitor(settings, frame) {
   const aux = readArea('area-aux', settings ? settings.aux_area : 0);
   const temp = frame ? frame.cpu_temperature_c : null;
   const clock = frame ? clockText(frame.cpu_clock_mhz) : null;
+  const numberOrDash = (value) =>
+    value === null || value === undefined || !Number.isFinite(Number(value)) ? '—' : String(value);
+  const pump = frame ? numberOrDash(frame.pump_rpm) : '—';
+  const fan = frame ? numberOrDash(frame.cpu_fan_rpm) : '—';
 
   setHidden('preview-main2', main !== 4);
   setHidden('preview-style', main !== 0);
@@ -80,12 +84,12 @@ function renderMonitor(settings, frame) {
     const mm = String(now.getMinutes()).padStart(2, '0');
     paintMain(now.getHours() < 12 ? 'AM' : 'PM', hh + ':' + mm, '');
   } else if (main === 2) {
-    paintMain('PUMP RPM', '—', 'RPM');
+    paintMain('PUMP RPM', pump, 'RPM');
   } else if (main === 3) {
-    paintMain('CPU FAN', '—', 'RPM');
+    paintMain('CPU FAN', fan, 'RPM');
   } else if (main === 4) {
-    paintMain('CPU FAN', '—', 'RPM');
-    setText('preview-value2', '—');
+    paintMain('CPU FAN', fan, 'RPM');
+    setText('preview-value2', pump);
     setText('preview-unit2', 'RPM');
   } else if (main === 5) {
     paintMain('CPU TEMPERATURE', temp === null || temp === undefined ? '—' : String(temp), '°C');

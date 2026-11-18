@@ -44,6 +44,8 @@ fn frame() -> FrameValues {
         memory_load_percent: Some(55),
         gpu_temperature_c: None,
         cpu_clock_mhz: Some(4300),
+        pump_rpm: None,
+        cpu_fan_rpm: None,
         missing: vec!["gpu_temperature_c".to_owned()],
         source: "test".to_owned(),
     }

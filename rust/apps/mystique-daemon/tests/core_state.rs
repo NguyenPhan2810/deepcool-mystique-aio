@@ -103,7 +103,7 @@ fn unavailable_sensors_are_null_and_named_in_the_event() {
     assert_eq!(frame.gpu_temperature_c, None);
     assert_eq!(frame.cpu_clock_mhz, None);
     assert!(frame.missing.contains(&"gpu_temperature_c".to_owned()));
-    assert_eq!(frame.missing.len(), 4);
+    assert_eq!(frame.missing.len(), 6);
 }
 
 #[test]
@@ -197,6 +197,51 @@ fn stopping_the_stream_halts_frames_and_starting_it_resumes() {
         core.telemetry_status().frames_sent,
         1,
         "start resets counters"
+    );
+}
+
+#[test]
+fn the_stream_rate_changes_without_stopping_the_stream() {
+    let state = Arc::new(ProviderState::new());
+    let now = Instant::now();
+    let mut core = build_core(state.clone(), SensorSample::default(), fast_config(), now);
+    core.tick(now);
+    assert_eq!(state.frames_sent(), 1);
+
+    let (response, _) = core.handle(
+        &support::request(
+            1,
+            mystique_ipc::cmd::SET_STREAM_RATE,
+            serde_json::json!({ "hz": 30 }),
+        ),
+        now,
+    );
+    assert!(response.ok);
+    assert_eq!(core.telemetry_status().interval_ms, 33);
+    assert!(core.is_stream_running(), "the rate change does not stop it");
+
+    // The change is applied at once: the next tick is due immediately, not one old
+    // period later.
+    core.tick(now);
+    assert_eq!(state.frames_sent(), 2);
+
+    let (response, _) = core.handle(
+        &support::request(
+            2,
+            mystique_ipc::cmd::SET_STREAM_RATE,
+            serde_json::json!({ "hz": 0 }),
+        ),
+        now,
+    );
+    assert!(!response.ok);
+    assert_eq!(
+        response.error.map(|error| error.code).as_deref(),
+        Some(mystique_ipc::codes::RANGE)
+    );
+    assert_eq!(
+        core.telemetry_status().interval_ms,
+        33,
+        "a rejected rate leaves the current one in place"
     );
 }
 

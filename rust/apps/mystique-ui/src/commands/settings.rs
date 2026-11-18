@@ -10,6 +10,28 @@ use super::call_data;
 use crate::app::AppState;
 
 #[tauri::command]
+pub async fn set_mode(
+    state: State<'_, AppState>,
+    mode: u8,
+) -> Result<CommandOutcome, CommandError> {
+    call_data(&state.client, cmd::SET_MODE, json!({ "mode": mode })).await
+}
+
+#[tauri::command]
+pub async fn set_fan_io(
+    state: State<'_, AppState>,
+    cpu: String,
+    pump: String,
+) -> Result<CommandOutcome, CommandError> {
+    call_data(
+        &state.client,
+        cmd::SET_FAN_IO,
+        json!({ "cpu": cpu, "pump": pump }),
+    )
+    .await
+}
+
+#[tauri::command]
 pub async fn set_brightness(
     state: State<'_, AppState>,
     brightness: u8,

@@ -17,9 +17,11 @@
   <div class="indic"><span class="sk">DAEMON</span><span class="lamp" id="daemon-dot"></span><span class="iv" id="daemon-status">Contacting</span></div>
   <div class="indic"><span class="sk">HANDLE</span><span class="lamp" id="handle-dot"></span><span class="iv" id="conn-device-open">unknown</span></div>
   <div class="indic"><span class="sk">SERVICE</span><span class="lamp" id="service-dot"></span><span class="iv" id="conn-service-running">unknown</span></div>
-  <div class="indic" id="stream-badge"><span class="sk">STREAM</span><span class="lamp" id="stream-dot"></span><span class="iv" id="stream-word">Idle</span></div>
-  <div class="indic"><span class="sk">FRAMES</span><span class="iv mono" id="stream-frames">0</span></div>
-  <div class="indic"><span class="sk">SOURCE</span><span class="iv mono src" id="stream-source">not started</span></div>
+  <div class="indic" id="stream-badge"><span class="sk">STREAM</span><span class="lamp" id="stream-dot"></span><span class="iv" id="stream-word">—</span></div>
+  <div class="ratebox" id="stream-rate" role="group" aria-label="Stream rate in hertz">
+    <span class="sk">RATE</span>
+    <button class="ratekey" type="button" id="stream-rate-1" data-hz="1" aria-pressed="false">1</button><button class="ratekey" type="button" id="stream-rate-5" data-hz="5" aria-pressed="false">5</button><button class="ratekey" type="button" id="stream-rate-10" data-hz="10" aria-pressed="false">10</button><button class="ratekey" type="button" id="stream-rate-20" data-hz="20" aria-pressed="false">20</button><button class="ratekey" type="button" id="stream-rate-30" data-hz="30" aria-pressed="false">30</button><span class="rateunit">HZ</span>
+  </div>
   <span class="vsep"></span>
   <button class="logtoggle" type="button" id="btn-log-toggle" aria-expanded="false" aria-controls="log-drawer">
     <span class="sk">PACKET LOG</span><span class="badge" id="log-badge">0</span>
@@ -67,10 +69,25 @@
             <span class="miss mono" id="stream-missing">MISSING —</span>
             <span class="errchip" id="stream-error-note" hidden>—</span>
           </div>
+          <div class="srow">
+            <span class="sk">SOURCE</span><span class="mono src" id="stream-source">not started</span>
+            <span class="grow"></span>
+            <span class="sk">FRAMES</span><span class="metric" id="stream-frames">0</span>
+            <span class="sk">FAILED</span><span class="metric" id="stream-failed">0</span>
+          </div>
+          <div class="srow" id="stream-achieved-row" hidden>
+            <span class="sk">ACHIEVED</span><span class="metric" id="stream-achieved">—</span>
+          </div>
+          <div class="srow">
+            <span class="sk">SAMPLE</span><span class="metric" id="stream-sample">0.0</span>
+            <span class="sk">XFER</span><span class="metric" id="stream-transfer">0.0</span>
+            <span class="sk">MAX</span><span class="metric" id="stream-max">0.0</span>
+            <span class="unit">MS</span>
+          </div>
           <div class="srow"><div class="sitmsg warn" id="daemon-conflict" hidden><b>Two owners</b><span id="daemon-conflict-text"></span></div><div class="sitmsg warn" id="conn-service-warning" hidden><b>Vendor service holds the device</b><span>stop it to open</span></div></div>
           <p class="sitmsg err" id="conn-error" role="alert" hidden></p>
           <p class="err" id="stream-error" role="alert" hidden></p>
-          <p class="snote">Not display commands: fan I/O, RGB temperature warning, edge picking.</p>
+          <p class="snote">Not display commands: RGB temperature warning, edge picking.</p>
         </div>
       </details>
     </div>
@@ -119,9 +136,10 @@
         <p class="err smallerr" id="rgb-error" role="alert" hidden></p>
       </section>
       <section class="group" data-modes="monitor">
-        <div class="gh"><h2>Fan I/O</h2><span class="meta">mapping</span></div>
-        <div class="field"><label for="io-cpu">CPU fan</label><div class="selwrap"><select id="io-cpu"><option>N/A</option><option>AIO Pump</option><option>CPU</option></select></div><span class="unwired">No display command; fan controller.</span></div>
-        <div class="field"><label for="io-pump">Pump fan</label><div class="selwrap"><select id="io-pump"><option>N/A</option><option>AIO Pump</option><option>CPU</option></select></div><span class="unwired">No display command; fan controller.</span></div>
+        <div class="gh"><h2>Fan I/O</h2><span class="meta">dial source</span></div>
+        <div class="field"><label for="io-cpu">CPU fan</label><div class="selwrap"><select id="io-cpu"><option value="none">N/A</option><option value="cpu">CPU</option><option value="pump">AIO Pump</option></select></div></div>
+        <div class="field"><label for="io-pump">Pump fan</label><div class="selwrap"><select id="io-pump"><option value="none">N/A</option><option value="cpu">CPU</option><option value="pump">AIO Pump</option></select></div></div>
+        <p class="err smallerr" id="fanio-error" role="alert" hidden></p>
       </section>
       <section class="group" data-modes="media">
         <div class="gh"><h2>Image / GIF</h2><span class="meta">single slot</span></div>
@@ -132,7 +150,6 @@
         <div class="gh"><h2>Image switch</h2><span class="meta">0x07</span></div>
         <div class="radios" role="group" aria-label="Image switch time"><label><input type="radio" name="media-time" id="media-time-0" value="0" checked><span>3 s</span></label><label><input type="radio" name="media-time" id="media-time-1" value="1"><span>5 s</span></label><label><input type="radio" name="media-time" id="media-time-2" value="2"><span>7 s</span></label></div>
         <div class="radios" role="group" aria-label="Image switch animation"><label><input type="radio" name="media-animation" id="media-animation-0" value="0" checked><span>Split</span></label><label><input type="radio" name="media-animation" id="media-animation-1" value="1"><span>Scroll</span></label><label><input type="radio" name="media-animation" id="media-animation-2" value="2"><span>Fade</span></label></div>
-        <div class="rowend"><button class="key" type="button" id="btn-media-send">Send timing</button></div>
         <p class="err smallerr" id="media-error" role="alert" hidden></p>
       </section>
       <section class="group" data-modes="media">
@@ -149,11 +166,10 @@
         <p class="err smallerr" id="dashboard-error" role="alert" hidden></p>
         <p class="err smallerr" id="erase-error" role="alert" hidden></p>
       </section>
-      <section class="group" data-modes="monitor media">
+      <section class="group" data-modes="monitor media recording">
         <div class="gh"><h2>Labels</h2><span class="meta">ASCII · 39 B</span></div>
         <div class="lfield"><div class="lhead"><label for="label-cpu">CPU name</label><span class="count" id="cpu-counter"><span class="n" id="cpu-count">2</span> / 39 B</span></div><input id="label-cpu" type="text" maxlength="39" value="--" spellcheck="false" autocomplete="off"><p class="err smallerr" id="cpu-label-error" hidden></p></div>
         <div class="lfield"><div class="lhead"><label for="label-gpu">GPU name</label><span class="count" id="gpu-counter"><span class="n" id="gpu-count">2</span> / 39 B</span></div><input id="label-gpu" type="text" maxlength="39" value="--" spellcheck="false" autocomplete="off"><p class="err smallerr" id="gpu-label-error" hidden></p></div>
-        <div class="rowend"><button class="key" type="button" id="btn-labels-save">Save labels</button></div>
         <p class="err smallerr" id="labels-error" role="alert" hidden></p>
       </section>
       <section class="group" data-modes="recording">
@@ -192,7 +208,6 @@
           <div class="field"><label for="area-main">Main display area</label><div class="selwrap"><select id="area-main"><option value="0">CPU Frequency</option><option value="1">Time</option><option value="2">Pump Speed</option><option value="3">CPU FanSpeed</option><option value="4">CPU FanSpeed + Pump Speed</option><option value="5">Temperature</option></select></div></div>
           <div class="field" id="area-style-row"><label for="area-style">Style type</label><div class="selwrap"><select id="area-style"><option value="0">Normal</option><option value="1">Ring</option><option value="2">Stopwatch</option></select></div></div>
           <div class="field"><label for="area-aux">Auxiliary display area</label><div class="selwrap"><select id="area-aux"><option value="0">Voltage Mode</option><option value="1">System Monitor</option><option value="2">Core Data</option></select></div></div>
-          <div class="rowend"><button class="key" type="button" id="btn-areas-send">Send areas</button></div>
         </div>
         <p class="err" id="areas-error" role="alert" hidden></p>
       </section>
@@ -200,10 +215,10 @@
         <div class="ph"><span class="ttl">Upload plan</span></div>
         <div class="mediabody">
           <div class="planleft">
-            <div class="fitrow"><label for="upload-fit">Fit</label><div class="selwrap"><select id="upload-fit"><option value="cover">Cover — crop to fill</option><option value="contain">Contain — letterbox</option></select></div><button class="key" type="button" id="btn-plan-upload" disabled>Preview</button></div>
+            <div class="fitrow"><label for="upload-fit">Fit</label><div class="selwrap"><select id="upload-fit"><option value="cover">Cover - crop to fill</option><option value="contain">Contain - letterbox</option></select></div></div>
             <div class="plan3"><div><span>FRAMES</span><b id="upload-plan-frames">—</b></div><div><span>BYTES</span><b id="upload-plan-bytes">—</b></div><div><span>CHUNKS</span><b id="upload-plan-chunks">—</b></div></div>
             <div id="upload-plan" hidden>
-              <div class="prow"><span>Kind</span><b id="upload-plan-kind">—</b></div><div class="prow"><span>Fit</span><b id="upload-plan-fit">—</b></div><div class="prow"><span>Size</span><b id="upload-plan-size">—</b></div><div class="prow"><span>Commands</span><b id="upload-plan-commands">—</b></div><div class="prow"><span>Content id</span><b class="mono" id="upload-plan-content-id">—</b></div>
+              <div class="prow"><span>Kind</span><b id="upload-plan-kind">—</b></div><div class="prow"><span>Size</span><b id="upload-plan-size">—</b></div><div class="prow"><span>Commands</span><b id="upload-plan-commands">—</b></div><div class="prow"><span>Content id</span><b class="mono" id="upload-plan-content-id">—</b></div>
               <details id="upload-plan-details"><summary>PACKETS</summary><ol id="upload-plan-command-list"></ol></details>
             </div>
             <div class="line" id="upload-confirm-copy">Plan first, then confirm.</div>

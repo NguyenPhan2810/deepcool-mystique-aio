@@ -7,13 +7,77 @@
 //! (`re/findings/15-driver-verification.md`) — so the last non-zero brightness is
 //! remembered and restored by "on".
 
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use mystique_ipc::{FrameValues, SettingsState, TelemetryStatus};
 use mystique_protocol::{
     DisplayAreas, DisplayConfig, MachineLabels, MediaTiming, RecordingConfig, Rotation,
 };
 use mystique_sensors::SensorSample;
+
+/// Which sensor feeds one of the panel's two RPM dials. The vendor app calls this
+/// "CPU Fan I/O" and "Pump Fan I/O"; it is a routing choice on the host, not a device
+/// command, because the panel is told one number per dial and nothing else.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FanSource {
+    /// Feed `0`. The dialog stays empty rather than showing a wrong source.
+    None,
+    Cpu,
+    Pump,
+}
+
+impl FanSource {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::Cpu => "cpu",
+            Self::Pump => "pump",
+        }
+    }
+
+    pub fn parse(text: &str) -> Option<Self> {
+        match text.trim().to_ascii_lowercase().as_str() {
+            "none" | "n/a" | "na" => Some(Self::None),
+            "cpu" => Some(Self::Cpu),
+            "pump" | "aio pump" => Some(Self::Pump),
+            _ => None,
+        }
+    }
+}
+
+/// The routing for both dials, in panel order: the first dial is CPU FAN, the second is
+/// PUMP RPM. Defaults are the obvious ones; crossing them is allowed because the vendor
+/// app allows it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FanIo {
+    pub cpu: FanSource,
+    pub pump: FanSource,
+}
+
+impl Default for FanIo {
+    fn default() -> Self {
+        Self {
+            cpu: FanSource::Cpu,
+            pump: FanSource::Pump,
+        }
+    }
+}
+
+impl FanIo {
+    /// `(first dial, second dial)` in RPM. `None` means "no value", which the frame
+    /// writes as 0.
+    pub fn route(self, sample: &SensorSample) -> (Option<u16>, Option<u16>) {
+        (pick(sample, self.cpu), pick(sample, self.pump))
+    }
+}
+
+fn pick(sample: &SensorSample, source: FanSource) -> Option<u16> {
+    match source {
+        FanSource::None => None,
+        FanSource::Cpu => sample.cpu_fan_rpm,
+        FanSource::Pump => sample.pump_rpm,
+    }
+}
 
 /// The values the daemon owns for this session. None of these are device reads.
 #[derive(Debug, Clone, Default)]
@@ -29,6 +93,8 @@ pub struct Settings {
     pub(crate) media_time: u8,
     pub(crate) media_animation: u8,
     pub(crate) labels: MachineLabels,
+    /// Which sensor feeds each RPM dial.
+    pub(crate) fan_io: FanIo,
     /// Last rotation this session set, or the last `0x10` read.
     pub(crate) last_rotation: Option<u8>,
 }
@@ -81,6 +147,8 @@ impl Settings {
             ),
             cpu_label: self.labels.cpu.clone(),
             gpu_label: self.labels.gpu.clone(),
+            fan_io_cpu: self.fan_io.cpu.as_str().to_owned(),
+            fan_io_pump: self.fan_io.pump.as_str().to_owned(),
         }
     }
 }
@@ -112,6 +180,12 @@ pub struct StreamStatus {
     interval: Duration,
     running: bool,
     frames_sent: u64,
+    frames_failed: u64,
+    last_sample: Duration,
+    last_transfer: Duration,
+    max_transfer: Duration,
+    measured_interval: Duration,
+    last_frame_at: Option<Instant>,
     source: Option<String>,
     last_frame: Option<FrameValues>,
     missing: Vec<String>,
@@ -125,6 +199,12 @@ impl StreamStatus {
             interval,
             running,
             frames_sent: 0,
+            frames_failed: 0,
+            last_sample: Duration::ZERO,
+            last_transfer: Duration::ZERO,
+            max_transfer: Duration::ZERO,
+            measured_interval: Duration::ZERO,
+            last_frame_at: None,
             source: None,
             last_frame: None,
             missing: Vec::new(),
@@ -141,6 +221,12 @@ impl StreamStatus {
     pub fn start(&mut self) {
         self.running = true;
         self.frames_sent = 0;
+        self.frames_failed = 0;
+        self.last_sample = Duration::ZERO;
+        self.last_transfer = Duration::ZERO;
+        self.max_transfer = Duration::ZERO;
+        self.measured_interval = Duration::ZERO;
+        self.last_frame_at = None;
         self.source = None;
         self.last_frame = None;
         self.missing.clear();
@@ -152,6 +238,15 @@ impl StreamStatus {
         self.running = false;
     }
 
+    /// Changes the requested period. The measured average is dropped with it: a
+    /// measurement taken at 1 Hz says nothing about 30 Hz.
+    pub fn set_interval(&mut self, interval: Duration) {
+        self.interval = interval;
+        self.measured_interval = Duration::ZERO;
+        self.last_frame_at = None;
+        self.max_transfer = Duration::ZERO;
+    }
+
     pub fn note_frame(&mut self, frame: FrameValues) {
         self.frames_sent = self.frames_sent.saturating_add(1);
         self.missing.clone_from(&frame.missing);
@@ -161,7 +256,28 @@ impl StreamStatus {
         self.consecutive_errors = 0;
     }
 
+    /// Records what one frame cost. `now` is the tick timestamp, so the gap between
+    /// consecutive ticks is the period actually achieved, whatever the schedule asked
+    /// for. A measured period longer than `interval` means the work, not the timer, is
+    /// the limit — `last_sample` and `last_transfer` say which part.
+    pub fn note_timing(&mut self, now: Instant, sample: Duration, transfer: Duration) {
+        self.last_sample = sample;
+        self.last_transfer = transfer;
+        self.max_transfer = self.max_transfer.max(transfer);
+        if let Some(previous) = self.last_frame_at {
+            let gap = now.saturating_duration_since(previous);
+            self.measured_interval = if self.measured_interval.is_zero() {
+                gap
+            } else {
+                // 1/8 step: steady under a stall and still reacts within a few frames.
+                (self.measured_interval * 7 + gap) / 8
+            };
+        }
+        self.last_frame_at = Some(now);
+    }
+
     pub fn note_error(&mut self, message: impl Into<String>) -> u32 {
+        self.frames_failed = self.frames_failed.saturating_add(1);
         self.consecutive_errors = self.consecutive_errors.saturating_add(1);
         self.last_error = Some(message.into());
         self.consecutive_errors
@@ -171,7 +287,12 @@ impl StreamStatus {
         TelemetryStatus {
             running: self.running,
             frames_sent: self.frames_sent,
+            frames_failed: self.frames_failed,
             interval_ms: self.interval.as_millis() as u64,
+            measured_interval_ms: self.measured_interval.as_millis() as u64,
+            last_sample_us: self.last_sample.as_micros() as u64,
+            last_transfer_us: self.last_transfer.as_micros() as u64,
+            max_transfer_us: self.max_transfer.as_micros() as u64,
             device_open,
             source: self.source.clone(),
             last_frame: self.last_frame.clone(),
@@ -183,14 +304,22 @@ impl StreamStatus {
 }
 
 /// Converts a host sample into the DTO. Absent sensors stay `None`; the wire frame
-/// substitutes zero only because the protocol has no "unknown".
-pub fn frame_values(sample: &SensorSample, source: &str) -> FrameValues {
+/// substitutes zero only because the protocol has no "unknown". The two RPM values are
+/// the **routed** ones, so the preview shows the same dial mapping the panel got.
+pub fn frame_values(
+    sample: &SensorSample,
+    source: &str,
+    cpu_fan: Option<u16>,
+    pump: Option<u16>,
+) -> FrameValues {
     FrameValues {
         cpu_temperature_c: sample.cpu_temperature_c,
         cpu_usage_percent: sample.cpu_usage_percent,
         memory_load_percent: sample.memory_load_percent,
         gpu_temperature_c: sample.gpu_temperature_c,
         cpu_clock_mhz: sample.cpu_clock_mhz,
+        pump_rpm: pump,
+        cpu_fan_rpm: cpu_fan,
         missing: sample
             .missing_fields()
             .into_iter()
@@ -252,23 +381,50 @@ mod tests {
     }
 
     #[test]
+    fn fan_routing_decides_which_sensor_reaches_each_dial() {
+        let sample = SensorSample {
+            cpu_fan_rpm: Some(1326),
+            pump_rpm: Some(3341),
+            ..SensorSample::default()
+        };
+
+        // The panel's first dial is CPU FAN, the second is PUMP RPM.
+        assert_eq!(FanIo::default().route(&sample), (Some(1326), Some(3341)));
+
+        // Crossing them is allowed: the vendor app allows it, and the owner may want it.
+        let crossed = FanIo {
+            cpu: FanSource::Pump,
+            pump: FanSource::Cpu,
+        };
+        assert_eq!(crossed.route(&sample), (Some(3341), Some(1326)));
+
+        // N/A sends nothing, which the panel draws as 0 RPM rather than a wrong source.
+        let off = FanIo {
+            cpu: FanSource::None,
+            pump: FanSource::None,
+        };
+        assert_eq!(off.route(&sample), (None, None));
+    }
+
+    #[test]
     fn a_missing_sensor_stays_none_and_is_named() {
         let sample = SensorSample {
             cpu_temperature_c: Some(41),
             ..SensorSample::default()
         };
-        let values = frame_values(&sample, "test");
+        let values = frame_values(&sample, "test", None, None);
         assert_eq!(values.cpu_temperature_c, Some(41));
         assert_eq!(values.gpu_temperature_c, None);
         assert_eq!(values.cpu_clock_mhz, None);
-        assert_eq!(values.missing.len(), 4);
+        assert_eq!(values.missing.len(), 6);
         assert!(values.missing.contains(&"gpu_temperature_c".to_owned()));
+        assert!(values.missing.contains(&"cpu_fan_rpm".to_owned()));
     }
 
     #[test]
     fn the_stream_counts_frames_and_errors_without_stopping() {
         let mut stream = StreamStatus::new(Duration::from_millis(500), true);
-        let values = frame_values(&SensorSample::default(), "test");
+        let values = frame_values(&SensorSample::default(), "test", None, None);
         stream.note_frame(values.clone());
         assert_eq!(stream.status(false).frames_sent, 1);
         assert_eq!(stream.status(false).interval_ms, 500);
@@ -288,7 +444,7 @@ mod tests {
     #[test]
     fn starting_again_resets_the_counters_but_stopping_keeps_the_last_frame() {
         let mut stream = StreamStatus::new(Duration::from_secs(1), true);
-        let values = frame_values(&SensorSample::default(), "test");
+        let values = frame_values(&SensorSample::default(), "test", None, None);
         stream.note_frame(values);
         stream.stop();
         assert!(!stream.running());

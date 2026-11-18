@@ -27,6 +27,8 @@ fn frame() -> FrameValues {
         memory_load_percent: Some(61),
         gpu_temperature_c: Some(48),
         cpu_clock_mhz: None,
+        pump_rpm: None,
+        cpu_fan_rpm: None,
         missing: vec!["cpu_usage_percent".to_owned(), "cpu_clock_mhz".to_owned()],
         source: "vendor sensor pipe".to_owned(),
     }

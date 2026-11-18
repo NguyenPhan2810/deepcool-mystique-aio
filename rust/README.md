@@ -86,7 +86,7 @@ mystique live [--count N]      init, then real sensors at 1 Hz
 mystique brightness <0-100> [--send]
 mystique rotate <0-3> [--send]
 mystique gyro <on|off> [--send]
-mystique flag0 <on|off> [--send]  the unknown 0x02 byte 0, not screen control
+mystique flag0 <on|off> [--send]  the idle screen bit (0x02[0]), not screen control
 mystique areas --main <n> [--style <0-2>] --aux <n> [--send]
 mystique media-timing --time <0-2> --animation <0-2> [--send]
 mystique image <path> [--send] [--cpu NAME] [--gpu NAME]
@@ -101,40 +101,43 @@ erase is the verified way back to machine info (see "not yet known" for what rem
 open). JPEG input is passed through after a JFIF check; PNG and GIF are decoded, fitted to
 480x640 portrait on black, and re-encoded with standard Huffman tables at quality 90.
 
-The six settings verbs are dry runs too: without `--send` they print the command, the
+The settings verbs are dry runs too: without `--send` they print the command, the
 pipe, the full payload and the exact 48-byte packet. All of them need the vendor service
 stopped before they can reach the panel, because the device is single-owner.
 
-## Settings — brightness, rotation, gyro, areas, media timing
+## Settings — idle, brightness, rotation, gyro, RGB, areas, media timing, recording
 
-Decoded from the 2026-11-18 settings capture (`re/findings/13-settings-decode.md`), in
+Decoded from the 2026-11-18 settings captures (`re/findings/13-settings-decode.md`,
+`re/findings/17-mode-and-idle-screen.md`, `re/findings/18-rgb-and-recording.md`), in
 which the owner changed one control at a time and the config block was diffed. Each
 payload is **absolute state**, not a delta: `0x02` always carries all five bytes, so a
-brightness write also sends byte 0, gyro and rotation (at their defaults, unless the
-caller built a full `DisplayConfig`). Byte 0, gyro and brightness have no read-back;
-`0x10` reports rotation, and even that byte is advisory.
+brightness write also sends idle screen, gyro, rotation and RGB sync (at their defaults,
+unless the caller built a full `DisplayConfig`). Those four have no read-back; `0x10`
+reports rotation, and even that byte is advisory.
 
 | Setting | Command | Payload | Index | Values | Confidence |
 |---|---|---|---|---|---|
-| — unknown byte 0 | `0x02` | 5 bytes | 0 | `01` sent (`00`/`01` observed) | **Unknown** |
+| Idle screen display | `0x02` | 5 bytes | 0 | `01` enabled, `00` disabled | Verified |
 | Gyroscopes allowed | `0x02` | 5 bytes | 1 | `01` allowed, `00` off | High |
 | Rotation | `0x02` | 5 bytes | 2 | `00`–`03` = 0/90/180/270° | High |
-| — unknown byte 3 | `0x02` | 5 bytes | 3 | `00` sent (`00`–`03` observed) | **Unknown** |
+| RGB light effect sync | `0x02` | 5 bytes | 3 | `01` synced, `00` not | Verified |
 | Brightness | `0x02` | 5 bytes | 4 | `00`–`64` hex = 0–100 | High |
-| — selector for `0x03` | `0x03` | 1 byte | 0 | `01` captured in the init block, later `02` | **Unknown** |
+| Display mode | `0x03` | 1 byte | 0 | `01` Monitor, `02` Media, `03` Recording | Verified; no setter yet |
 | Main display area | `0x04` | 4 bytes | 0 | `00`, `01`, `03`, `05` observed | High |
 | Style Type | `0x04` | 4 bytes | 1 | `00` Normal, `01` Ring, `02` Stopwatch | Verified; renders only with main `00` |
 | — reserved | `0x04` | 4 bytes | 2 | always sent `00`; never observed non-zero | **Unknown** |
 | Auxiliary style | `0x04` | 4 bytes | 3 | `00` Voltage Mode, `01` System Monitor, `02` Core Data | Verified; renders only with main `00` |
+| CPU frequency graph | `0x05` | 2 bytes | 0 | `01` on, `00` off | Verified |
+| CPU temperature graph | `0x05` | 2 bytes | 1 | `01` on, `00` off | Verified |
 | Image switch time | `0x07` | 2 bytes | 0 | `00`/`01`/`02` = 3/5/7 s | High |
 | Switch animation | `0x07` | 2 bytes | 1 | `00`/`01`/`02` = Split/Scroll/Fade In/Out | High |
 
-**`0x02` byte 0 is not screen enable.** The first hardware pass
-(`re/findings/15-driver-verification.md`) showed the byte does nothing, and the owner
-found that **brightness 0 already blanks the panel**. The driver keeps sending `01` there
-because that is the vendor capture's value, but the accessor is `unknown_byte0` and the
-meaning stays Unknown. Screen off is `mystique brightness 0`; screen on is any non-zero
-brightness. `mystique-ui` keeps the last lit value and restores it.
+**`0x02` byte 0 is the idle screen display, not screen enable.** The first hardware pass
+(`re/findings/15-driver-verification.md`) showed the byte does not blank the panel;
+`re/findings/17-mode-and-idle-screen.md` then labelled it from a capture in which it moved
+with the vendor's Idle Screen Display control. The driver sends `01` by default, and
+**brightness 0 already blanks the panel**. Screen off is `mystique brightness 0`; screen
+on is any non-zero brightness. `mystique-ui` keeps the last lit value and restores it.
 
 **Rotation is gated on the gyro.** The panel ignores rotation while the gyroscopes are
 enabled, and the vendor UI disables the rotation control until they are off. The driver
@@ -148,18 +151,16 @@ so larger values are rejected. The payload is `[main, style, 0, aux]`
 is `00` CPU Frequency**. Index 2 is never observed non-zero, so it stays Unknown and is always
 written `00`. Styles appear only after a telemetry frame, so the UI pushes `0x01` after `0x04`.
 
-`0x03` is **Unknown** again. The settings capture correlated `01` with Monitor and `02`
-with Media, but not causally: on hardware, `0x03 [01]` plus the handshake did not leave
-media, while erasing stored images with `0x14` did (`re/findings/15-driver-verification.md`).
-The panel renders stored media while any exists and otherwise the dashboard, so the crate
-exposes no setter for `0x03`; the byte stays in the captured init block, meaning unknown.
-
+`0x03` is the verified display mode (`01` Monitor, `02` Media, `03` Recording), but the
+crate has no setter: the UI's mode selector is a view filter, and stored media dominates
+the panel until `0x14` erase. `0x05` is `[CPU frequency graph, CPU temperature graph]`;
+the captured init payload is `01 01`, and the driver pushes one `0x01` frame after a change.
 **Erase is how you leave media.** `0x14` with an empty payload on the init pipe deletes
 the stored image or GIF and the panel falls back to machine info; it is destructive and
 has no read-back, so the UI warns before sending it.
 
-Not encoded: `0x02` index 3 (candidate media type or recording state), `0x09` and `0x17`.
-They are unresolved in the findings and nothing in the driver guesses at them.
+Not encoded: `0x09` and `0x17`. The RGB **temperature warning** and fan I/O mapping produce
+no LCD traffic; they belong to the LED and fan controllers and are annotated as such.
 
 ## Frame transfer (captured on this 360)
 
@@ -411,10 +412,10 @@ the same question, and `0x0A` is the proof.
 | Cmd | Name | Pipe | Recognised on | Presence | Semantics | Notes |
 |---|---|---|---|---|---|---|
 | `0x01` | telemetry | data `0x02/0x82` | data | Verified | Inferred | 39-byte frame captured; five display fields understood, the rest not. The UI streams these at 1 Hz; a layout with no numbers means no `0x01` arrived. `re/fixtures/04-telemetry-baseline-0x01.json` |
-| `0x02` | display-config | init `0x01/0x81` | init | Verified | Inferred | captured payload `01 01 ROT 00 46`; rotation is byte 2, brightness byte 4, gyro byte 1 (high); bytes 0 and 3 are unknown. Byte 0 is **not** screen enable: brightness 0 blanks the panel (`re/findings/15-driver-verification.md`) |
-| `0x03` | init-step-0x03 | init | init | Verified | Unknown | captured payload `01`, later `02`; the settings capture correlated them with Monitor/Media, but that was not causal: `0x03 [01]` plus the handshake did not leave media; `0x14` erase alone did |
-| `0x04` | init-step-0x04 | init | init | Verified | Unknown | four bytes `[main, style, 0, aux]`; index 0 is Main Display Area, index 1 is Style Type (`00` Normal, `01` Ring, `02` Stopwatch), index 3 is Auxiliary Display Area (`00` Voltage Mode, `01` System Monitor, `02` Core Data) (`re/findings/16-aux-area-layout.md`); **style and aux render only with main `00` CPU Frequency**; index 2 has never been observed non-zero and is always written `00`, so its meaning is Unknown |
-| `0x05` | init-step-0x05 | init | init | Verified | Unknown | payload `01 01` |
+| `0x02` | display-config | init `0x01/0x81` | init | Verified | Verified | five absolute bytes: idle screen (0), gyro (1), rotation (2), RGB sync (3), brightness (4); every byte moved under a labelled vendor action (`re/findings/13`, `17`, `18`). Byte 0 is **not** screen enable: brightness 0 blanks the panel (`re/findings/15-driver-verification.md`) |
+| `0x03` | display-mode | init | init | Verified | Verified | `01` Monitor, `02` Media, `03` Recording, with four labelled transitions (`re/findings/17-mode-and-idle-screen.md`); stored media still dominates while it exists, so `0x14` erase is the visible way back. No setter yet |
+| `0x04` | display-areas | init | init | Verified | Unknown | four bytes `[main, style, 0, aux]`; index 0 is Main Display Area, index 1 is Style Type (`00` Normal, `01` Ring, `02` Stopwatch), index 3 is Auxiliary Display Area (`00` Voltage Mode, `01` System Monitor, `02` Core Data) (`re/findings/16-aux-area-layout.md`); **style and aux render only with main `00` CPU Frequency**; index 2 has never been observed non-zero and is always written `00`, so its meaning is Unknown |
+| `0x05` | recording-options | init | init | Verified | Verified | `[CPU frequency graph, CPU temperature graph]`; captured init payload `01 01`, both bits moved with the vendor Recording toggles (`re/findings/18-rgb-and-recording.md`) |
 | `0x06` | init-step-0x06 | init | init | Verified | Unknown | payload `01` |
 | `0x07` | init-step-0x07 | init | init | Verified | Unknown | captured payload is empty on this 360; the settings capture maps index 0 to image switch time (3/5/7 s) and index 1 to animation |
 | `0x08` | init-step-0x08 | init | init | Verified | Unknown | captured init payload is empty; upload commit is `01` |
@@ -536,11 +537,11 @@ code or named with `Evidence::Unknown`; no plausible semantics were invented.
 5. **Upload preamble and replay.** Resolved by capture: the vendor sends the same
    13-command block it repeats continuously, then erase/begin, frames, terminator,
    `0x08 [01]`, then `0x0A`, `0x10`, `0x12`. There is no second full preamble.
-6. **`0x09`, the `0x02` byte-3 toggle, and the `0x0A` counter.** All three were observed
-   but their meaning is unknown. `0x09` is not sent by any plan; `0x02` byte 3 is the
-   constant `DISPLAY_CONFIG_UNKNOWN_BYTE3`; the `0x0A` counter is caller-supplied.
-   `0x02` byte 0 is in the same category: it is sent at the captured `01` and is not a
-   screen control.
+6. **`0x09` and the `0x0A` counter.** Both were observed but their meaning is unknown.
+   `0x09` is not sent by any plan; the `0x0A` counter is caller-supplied. `0x02` byte 3
+   is no longer in this list: it is RGB light effect sync, verified in
+   `re/findings/18-rgb-and-recording.md`. `0x02` byte 0 is the idle screen display, also
+   verified (`re/findings/17-mode-and-idle-screen.md`), and is not a screen control.
 7. **Returning to Machine Info mode after an upload.** Resolved on 2026-11-18: erasing
    the stored images with `0x14` alone returned the panel to machine info. `0x03` is not
    a mode byte; media is content presence (`re/findings/15-driver-verification.md`).

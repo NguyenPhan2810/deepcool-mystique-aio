@@ -16,6 +16,12 @@ pub struct FrameValues {
     pub memory_load_percent: Option<u8>,
     pub gpu_temperature_c: Option<u8>,
     pub cpu_clock_mhz: Option<u16>,
+    /// `0x01[21..22]`. `None` when no fan source reported a value.
+    #[serde(default)]
+    pub pump_rpm: Option<u16>,
+    /// `0x01[24..25]`. `None` when no fan source reported a value.
+    #[serde(default)]
+    pub cpu_fan_rpm: Option<u16>,
     /// Field names that were unavailable for this frame.
     #[serde(default)]
     pub missing: Vec<String>,
@@ -30,7 +36,24 @@ pub struct FrameValues {
 pub struct TelemetryStatus {
     pub running: bool,
     pub frames_sent: u64,
+    /// Frames whose transfer or reply failed. Cumulative for this stream run.
+    #[serde(default)]
+    pub frames_failed: u64,
+    /// The requested period.
     pub interval_ms: u64,
+    /// The measured period, an exponential average of the last gaps. This is the number
+    /// that says whether the request is being met.
+    #[serde(default)]
+    pub measured_interval_ms: u64,
+    /// Host sampling cost for the last frame.
+    #[serde(default)]
+    pub last_sample_us: u64,
+    /// Write + reply cost for the last frame.
+    #[serde(default)]
+    pub last_transfer_us: u64,
+    /// Worst write + reply cost since the stream started.
+    #[serde(default)]
+    pub max_transfer_us: u64,
     pub device_open: bool,
     pub source: Option<String>,
     pub last_frame: Option<FrameValues>,
@@ -73,6 +96,8 @@ mod tests {
             memory_load_percent: Some(55),
             gpu_temperature_c: None,
             cpu_clock_mhz: Some(4300),
+            pump_rpm: None,
+            cpu_fan_rpm: None,
             missing: vec!["gpu_temperature_c".to_owned()],
             source: "sysinfo".to_owned(),
         }

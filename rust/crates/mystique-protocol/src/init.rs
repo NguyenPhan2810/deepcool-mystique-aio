@@ -145,7 +145,7 @@ pub fn machine_info_sequence_full(
     vec![
         InitStep::new(Command::DeviceInfo, [], SETTLE_STEP),
         InitStep::new(Command::DisplayConfig, display.payload(), SETTLE_STEP),
-        InitStep::new(Command::InitStep03, INIT_STEP_03_PAYLOAD, SETTLE_STEP),
+        InitStep::new(Command::SelectMode, INIT_STEP_03_PAYLOAD, SETTLE_STEP),
         InitStep::new(Command::InitStep04, areas.payload(), SETTLE_STEP),
         InitStep::new(Command::InitStep07, [], SETTLE_STEP),
         InitStep::new(Command::InitStep08, [], SETTLE_STEP),

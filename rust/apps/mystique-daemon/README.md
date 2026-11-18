@@ -1,7 +1,8 @@
 # mystique-daemon
 
 The headless owner of the DeepCool MYSTIQUE AIO LCD. It opens the panel once, runs the
-machine-info init, streams `0x01` telemetry at 1 Hz, and serves the Tauri-shaped control
+machine-info init, streams `0x01` telemetry — 1 Hz by default, 30 Hz measured clean — and
+serves the Tauri-shaped control
 API over a local socket. `apps/mystique-ui` is a client of this daemon: it holds no USB
 handle and runs no sampler. The CLI still opens the device directly.
 
@@ -15,6 +16,7 @@ off, reopens, and re-runs init.
 cd rust
 cargo run -p mystique-daemon --                     # 1 Hz, rotation 0, labels "--"
 cargo run -p mystique-daemon -- --interval-ms 500
+cargo run -p mystique-daemon -- --interval-ms 33   # 30 Hz, measured clean
 cargo run -p mystique-daemon -- --rotation 2 --cpu "Intel Core i9-14900K" --gpu "RTX 4070"
 ```
 
@@ -24,7 +26,7 @@ access-denied state and retries; it never stops the vendor service itself.
 
 | Flag | Default | Meaning |
 |---|---|---|
-| `--interval-ms N` | `1000` | Telemetry period, 100–60000 ms. |
+| `--interval-ms N` | `1000` | Telemetry period, 8–60000 ms. 33 ms is 30 Hz. |
 | `--rotation N` | `0` | Rotation used by the machine-info init (0–3). |
 | `--cpu NAME` | `--` | ASCII label for `0x15` and the init handshake, max 39 bytes. |
 | `--gpu NAME` | `--` | ASCII label for `0x16`, max 39 bytes. |
@@ -119,22 +121,53 @@ of the UI's `set_screen_power`, with the argument `enabled`.
 | `set_rotation` | `rotation: 0..=3` | `CommandOutcome` |
 | `set_gyro` | `enabled: bool` | `CommandOutcome` |
 | `set_screen` | `enabled: bool` | `CommandOutcome` |
+| `set_idle_screen` | `enabled: bool` | `CommandOutcome` (`0x02[0]`) |
+| `set_rgb_sync` | `enabled: bool` | `CommandOutcome` (`0x02[3]`) |
+| `set_recording` | `cpu_clock: bool`, `cpu_temp: bool` | `CommandOutcome` (`0x05`, then one redraw frame) |
+| `set_mode` | `mode: 1\|2\|3` (Monitor/Media/Recording) | `CommandOutcome` (`0x03`) |
+| `set_fan_io` | `cpu: "cpu"\|"pump"\|"none"`, `pump: …` | `CommandOutcome`; host routing, one redraw frame, no setting packet |
 | `set_areas` | `main: 0..=15`, `style: 0..=2` (default `0`), `aux: 0..=15` | `CommandOutcome` |
 | `set_media_timing` | `time: 0..=2`, `animation: 0..=2` | `CommandOutcome` |
 | `set_labels` | `cpu: string?`, `gpu: string?` | `CommandOutcome` |
+| `raw_packet` | `command: u8`, `payload: bytes[0..=39]`, `pipe: "init"\|"data"`, `dry_run: bool` | `RawPacketOutcome` |
 | `erase_images` | none | `CommandOutcome` |
 | `plan_upload` | `path: string`, `fit?: "cover"\|"contain"` | `UploadPlanSummary` |
 | `upload_image` | `path: string`, `fit?` | `CommandOutcome` |
 | `upload_gif` | `path: string`, `fit?` | `CommandOutcome` |
 | `start_stream` | none | `TelemetryStatus` |
 | `stop_stream` | none | `TelemetryStatus` |
+| `set_stream_rate` | `hz: 1..=120` | `TelemetryStatus`; applies on the next tick, no device traffic |
 | `shutdown` | none | `ShutdownAck`; reply first, then the clean stop |
 
 Semantics worth knowing:
 
+- **The rate is a host property.** No command carries it; the panel is never told. The
+  link is not the limit — the panel acknowledges a frame in ~0.5 ms, so 30 Hz costs 2.9
+  KB/s, about 0.19% of a 12 Mbit/s link. On Windows the clean ceiling is 30 Hz because the
+  default timer resolution is 15.625 ms; slower requests are exact. Measurements, before
+  and after, are in `re/findings/20-stream-rate.md`.
+- **The vendor sensor pipe pushes once per ~1.1 s**, so it is read on its own thread and
+  the sampler copies the newest snapshot. Blocking on that push was the old 1 Hz limit.
+  Numbers therefore change at the sensor rate even when the frame rate is 30 Hz; the
+  frame rate buys smoothness and panel-side animation, not fresher readings.
+- `TelemetryStatus` carries the evidence: `frames_sent`, `frames_failed`,
+  `measured_interval_ms` (achieved period), `last_sample_us`, `last_transfer_us`,
+  `max_transfer_us`.
 - **Screen off is brightness 0.** `set_screen(false)` writes brightness 0 in the same
   five-byte `0x02` payload; `set_screen(true)` restores the last non-zero value (70 until
-  one is set). `0x02` byte 0 is not a screen switch and is never presented as one.
+  one is set). `0x02` byte 0 is the idle screen display, not a screen switch.
+- `set_idle_screen` writes `0x02` byte 0 (`01` enabled, `00` disabled). It does not blank
+  the panel and is never presented as screen power.
+- `set_rgb_sync` writes `0x02` byte 3 (`01` synced, `00` not); the LCD firmware then defers
+  the ring colour to the motherboard. The RGB temperature warning has no LCD command.
+- `set_recording` writes `0x05` as `[cpu_clock, cpu_temp]`, then pushes one immediate `0x01`
+  frame because the graphs only draw with data. The frame does not change stream counters.
+- `set_mode` writes `0x03` as `[1|2|3]`. Stored images still hold the panel until `0x14`
+  erase; selecting Monitor does not return the dashboard on its own.
+- `set_fan_io` chooses which sensor feeds each RPM dial. **It is host routing, not a
+  device command**: `0x01` carries one number per dial (21..22 first, 24..25 second) and
+  nothing about where it came from. Changing the routing pushes one frame and no setting
+  packet. `none` sends 0, which the panel draws as 0 RPM.
 - `set_rotation` always clears the gyro in the same payload; the panel ignores rotation
   while the gyro is enabled.
 - `set_areas` sends `0x04` and then one immediate `0x01` frame, because a style byte only
@@ -150,6 +183,11 @@ Semantics worth knowing:
 - `erase_images` sends `0x14` alone with an empty payload on the init pipe. It is
   destructive and has no read-back; it is the verified route from stored media back to
   machine info. It needs an open device.
+- `raw_packet` builds the exact 48-byte request and, unless `dry_run` is set, sends it on
+  the chosen pipe. The daemon never computes a checksum in the client. A send returns the
+  response, the result code as data, and the `PacketRecord` to append to the log. A dry run
+  needs no open device. Unknown commands can change device state; `0xA1` starts a panel test
+  pattern sustained by traffic.
 - `status` performs a live `0x10` read and returns an error with the attempted packet if
   it fails. `device_state` never touches USB.
 - `shutdown` is the daemon's own stop. It answers `{ "stopping": true, "message": "…" }`

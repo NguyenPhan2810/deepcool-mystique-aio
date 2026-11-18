@@ -15,7 +15,7 @@ use crate::state::validate_label;
     long_about = None
 )]
 pub struct Options {
-    /// Telemetry period in milliseconds (100..=60000).
+    /// Telemetry period in milliseconds (8..=60000). 33 ms is 30 Hz.
     #[arg(long, default_value_t = 1000, value_parser = parse_interval)]
     pub interval_ms: u64,
 
@@ -50,13 +50,18 @@ impl Options {
     }
 }
 
+/// Smallest accepted period. The link is a full-speed bulk pipe and a frame is 48 bytes;
+/// 8 ms (125 Hz) is far inside the bus budget, so this is a guard against a typo, not a
+/// performance limit. The panel's real ceiling is measured, not assumed.
+pub const MIN_INTERVAL_MS: u64 = 8;
+
 fn parse_interval(text: &str) -> Result<u64, String> {
     let value: u64 = text
         .parse()
         .map_err(|_| format!("\"{text}\" is not a whole number of milliseconds"))?;
-    if !(100..=60_000).contains(&value) {
+    if !(MIN_INTERVAL_MS..=60_000).contains(&value) {
         return Err(format!(
-            "interval {value} ms is outside the supported range 100..=60000"
+            "interval {value} ms is outside the supported range {MIN_INTERVAL_MS}..=60000"
         ));
     }
     Ok(value)
@@ -97,9 +102,10 @@ mod tests {
 
     #[test]
     fn intervals_outside_the_range_are_rejected() {
-        assert_eq!(parse_interval("100").unwrap(), 100);
+        assert_eq!(parse_interval("8").unwrap(), 8);
+        assert_eq!(parse_interval("33").unwrap(), 33);
         assert_eq!(parse_interval("60000").unwrap(), 60_000);
-        assert!(parse_interval("99").is_err());
+        assert!(parse_interval("7").is_err());
         assert!(parse_interval("60001").is_err());
         assert!(parse_interval("fast").is_err());
     }

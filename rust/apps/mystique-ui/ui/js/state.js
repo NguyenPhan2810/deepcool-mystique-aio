@@ -106,6 +106,9 @@ export function applySettings(settings) {
   setSelect('area-aux', settings.aux_area);
   applyStyleRow(settings.main_area);
 
+  setSelect('io-cpu', settings.fan_io_cpu || 'cpu');
+  setSelect('io-pump', settings.fan_io_pump || 'pump');
+
   setChecked('media-time-' + settings.media_time, true);
   setChecked('media-animation-' + settings.media_animation, true);
 

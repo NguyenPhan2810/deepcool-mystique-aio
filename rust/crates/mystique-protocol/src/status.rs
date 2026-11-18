@@ -10,9 +10,11 @@ use crate::result_code::ResultCode;
 /// in image/GIF mode. A capture showed `0x00` while the panel was visibly in Machine
 /// Info mode, so this must never gate anything.
 ///
-/// This is the **read** side and is advisory. There is no verified write-side selector:
-/// `0x03` is **Unknown**, and media is content presence — erasing stored images with
-/// `0x14` is what returns the panel to machine info.
+/// This is the **read** side and is advisory. The write side is `0x03`
+/// ([`crate::display::DisplayTarget`]), verified by four labelled vendor transitions
+/// (`re/findings/17-mode-and-idle-screen.md`), but stored media is content presence and
+/// still dominates whichever target is selected — erasing stored images with `0x14` is
+/// what returns the panel to machine info.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DisplayMode {
     MachineInfo,

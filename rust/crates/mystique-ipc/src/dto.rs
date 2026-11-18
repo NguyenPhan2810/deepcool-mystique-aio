@@ -7,6 +7,18 @@ use serde::{Deserialize, Serialize};
 
 use crate::event::TelemetryStatus;
 
+fn default_true() -> bool {
+    true
+}
+
+fn default_fan_cpu() -> String {
+    "cpu".to_owned()
+}
+
+fn default_fan_pump() -> String {
+    "pump".to_owned()
+}
+
 /// The app's current belief about the panel's settings. Values are what was sent, or
 /// the protocol crate's defaults before anything was sent — never a device read.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -16,12 +28,16 @@ pub struct SettingsState {
     pub rotation_degrees: u16,
     pub brightness: u8,
     /// `0x02[0]`: idle screen display. Not screen power.
+    #[serde(default = "default_true")]
     pub idle_screen: bool,
     /// `0x02[3]`: RGB light effect sync.
+    #[serde(default)]
     pub rgb_sync: bool,
     /// `0x05[0]`: CPU frequency graph in Recording mode.
+    #[serde(default = "default_true")]
     pub record_cpu_clock: bool,
     /// `0x05[1]`: CPU temperature graph in Recording mode.
+    #[serde(default = "default_true")]
     pub record_cpu_temp: bool,
     /// Derived, never sent: brightness 0 blanks the panel.
     pub screen_on: bool,
@@ -36,6 +52,12 @@ pub struct SettingsState {
     pub media_animation_name: String,
     pub cpu_label: String,
     pub gpu_label: String,
+    /// Which sensor feeds the panel's first RPM dial: `cpu`, `pump` or `none`.
+    #[serde(default = "default_fan_cpu")]
+    pub fan_io_cpu: String,
+    /// Which sensor feeds the panel's second RPM dial.
+    #[serde(default = "default_fan_pump")]
+    pub fan_io_pump: String,
 }
 
 impl Default for SettingsState {
@@ -60,6 +82,8 @@ impl Default for SettingsState {
             media_animation_name: "Split Display".to_owned(),
             cpu_label: "--".to_owned(),
             gpu_label: "--".to_owned(),
+            fan_io_cpu: default_fan_cpu(),
+            fan_io_pump: default_fan_pump(),
         }
     }
 }
@@ -225,6 +249,21 @@ mod tests {
         assert_eq!(settings.media_seconds, 3);
         assert_eq!(settings.media_animation_name, "Split Display");
         assert_eq!(settings.cpu_label, "--");
+    }
+
+    #[test]
+    fn older_settings_payloads_get_the_documented_defaults() {
+        let mut json = serde_json::to_value(SettingsState::default()).unwrap();
+        let object = json.as_object_mut().unwrap();
+        object.remove("idle_screen");
+        object.remove("rgb_sync");
+        object.remove("record_cpu_clock");
+        object.remove("record_cpu_temp");
+        let decoded: SettingsState = serde_json::from_value(json).unwrap();
+        assert!(decoded.idle_screen);
+        assert!(!decoded.rgb_sync);
+        assert!(decoded.record_cpu_clock);
+        assert!(decoded.record_cpu_temp);
     }
 
     #[test]

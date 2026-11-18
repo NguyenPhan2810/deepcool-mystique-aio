@@ -252,6 +252,15 @@ fn telemetry_baseline_encodes_to_the_captured_payload() {
     let json = load("04-telemetry-baseline-0x01.json");
     let request = unhex(json["request"]["hex"].as_str().unwrap());
     let decoded = &json["decodedPayload"];
+    let payload = &request[3..42];
+
+    // Fixture 04 was emitted by our own C# service before 2026-11-19. It wrote the
+    // clock fraction into both RPM slots, so the frame literally carries two 3000 RPM
+    // readings. The encoder reproduces it only when told those are the fan values —
+    // which is the bug, preserved here as a regression, not a vendor fact.
+    let pump = u16::from_le_bytes([payload[21], payload[22]]);
+    let fan = u16::from_le_bytes([payload[24], payload[25]]);
+    assert_eq!((pump, fan), (3000, 3000));
 
     let frame = TelemetryFrame::new(
         decoded["cpuTemperatureC"].as_u64().unwrap() as u8,
@@ -259,9 +268,10 @@ fn telemetry_baseline_encodes_to_the_captured_payload() {
         decoded["memoryLoadPercent"].as_u64().unwrap() as u8,
         decoded["gpuTemperatureC"].as_u64().unwrap() as u8,
         decoded["cpuClockMhz"].as_u64().unwrap() as u16,
-    );
+    )
+    .with_fans(pump, fan);
 
-    assert_eq!(frame.encode().as_slice(), &request[3..42]);
+    assert_eq!(frame.encode().as_slice(), payload);
 }
 
 #[test]

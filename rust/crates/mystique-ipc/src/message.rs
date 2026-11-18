@@ -53,6 +53,8 @@ mod tests {
             memory_load_percent: None,
             gpu_temperature_c: None,
             cpu_clock_mhz: None,
+            pump_rpm: None,
+            cpu_fan_rpm: None,
             missing: vec!["cpu_usage_percent".to_owned()],
             source: "test".to_owned(),
         }));

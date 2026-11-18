@@ -17,8 +17,8 @@ mod upload;
 use std::time::{Duration, Instant};
 
 use mystique_ipc::{
-    cmd, codes, hex, CommandError, Event, OpenResult, PacketRecord, Request, Response, StatusDto,
-    UploadKind,
+    args, cmd, codes, hex, CommandError, Event, OpenResult, PacketRecord, Request, Response,
+    StatusDto, UploadKind,
 };
 use mystique_protocol::{Command, CommandPacket};
 use serde::de::DeserializeOwned;
@@ -43,6 +43,8 @@ impl Core {
             cmd::SET_IDLE_SCREEN => self.command_set_idle_screen(request, now),
             cmd::SET_RGB_SYNC => self.command_set_rgb_sync(request, now),
             cmd::SET_RECORDING => self.command_set_recording(request, now),
+            cmd::SET_MODE => self.command_set_mode(request, now),
+            cmd::SET_FAN_IO => self.command_set_fan_io(request, now),
             cmd::SET_AREAS => self.command_set_areas(request, now),
             cmd::SET_MEDIA_TIMING => self.command_set_media_timing(request, now),
             cmd::SET_LABELS => self.command_set_labels(request, now),
@@ -53,6 +55,7 @@ impl Core {
             cmd::UPLOAD_GIF => self.command_upload(request, now, UploadKind::Gif),
             cmd::START_STREAM => self.command_start_stream(request, now),
             cmd::STOP_STREAM => self.command_stop_stream(request),
+            cmd::SET_STREAM_RATE => self.command_set_stream_rate(request, now),
             other => failed(request, unknown_command(other)),
         };
         (response, vec![self.state_event()])
@@ -127,6 +130,27 @@ impl Core {
 
     fn command_stop_stream(&mut self, request: &Request) -> Response {
         self.stream.stop();
+        ok(request, &self.telemetry_status())
+    }
+
+    /// Changes the period of a running stream. No device command: the rate is a host
+    /// property, not something the panel can be told.
+    fn command_set_stream_rate(&mut self, request: &Request, now: Instant) -> Response {
+        let args = match parse::<args::StreamRate>(request) {
+            Ok(value) => value,
+            Err(error) => return failed(request, error),
+        };
+        if !(1..=120).contains(&args.hz) {
+            return failed(
+                request,
+                CommandError::range(format!(
+                    "stream rate {} Hz is outside the supported 1..=120",
+                    args.hz
+                )),
+            );
+        }
+        let interval = Duration::from_secs_f64(1.0 / f64::from(args.hz));
+        self.set_stream_interval(interval, now);
         ok(request, &self.telemetry_status())
     }
 

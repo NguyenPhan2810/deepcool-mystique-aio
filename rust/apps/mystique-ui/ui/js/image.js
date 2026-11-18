@@ -12,17 +12,12 @@ function currentFit() {
   return select ? select.value : 'cover';
 }
 
-function fitLabel(value) {
-  return value === 'contain' ? 'Contain — letterbox' : 'Cover — crop to fill';
-}
-
 function shortName(path) {
   return String(path || '').split(/[\\/]/).pop();
 }
 
 function renderPlan(plan) {
   setText('upload-plan-kind', plan.kind === 'gif' ? 'GIF' : 'Image');
-  setText('upload-plan-fit', fitLabel(plan.fit));
   setText(
     'upload-plan-size',
     plan.source_width + ' × ' + plan.source_height + ' → ' + plan.output_width + ' × ' + plan.output_height,
@@ -82,43 +77,36 @@ function bindPicker() {
       setTitle('image-path', selected);
       setText('upload-message', '');
       resetPlan();
-      setDisabled('btn-plan-upload', false);
+      // The plan is local arithmetic: build it as soon as there is a file. Uploading is
+      // the irreversible step and stays behind its own confirm.
+      await buildPlan();
     } catch (error) {
       showError('upload', error);
     }
   });
 }
 
+async function buildPlan() {
+  if (!state.selectedPath) return;
+  resetPlan();
+  const fit = currentFit();
+  const plan = await runCommand('plan_upload', { path: state.selectedPath, fit }, 'upload');
+  if (!plan) return;
+  state.plan = plan;
+  state.planPath = state.selectedPath;
+  state.planFit = fit;
+  state.mediaPreview = plan.preview || null;
+  state.mediaKind = plan.kind;
+  renderPlan(plan);
+  setHidden('upload-plan', false);
+  setText('upload-message', '');
+  renderPreview();
+}
+
 function bindFit() {
   const fit = el('upload-fit');
   if (!fit) return;
-  fit.addEventListener('change', () => {
-    resetPlan();
-    setText('upload-message', 'fit changed · preview the plan again');
-  });
-}
-
-function bindPreview() {
-  const preview = el('btn-plan-upload');
-  if (!preview) return;
-  preview.addEventListener('click', async () => {
-    if (!state.selectedPath) return;
-    resetPlan();
-    setDisabled('btn-plan-upload', true);
-    const fit = currentFit();
-    const plan = await runCommand('plan_upload', { path: state.selectedPath, fit }, 'upload');
-    setDisabled('btn-plan-upload', false);
-    if (!plan) return;
-    state.plan = plan;
-    state.planPath = state.selectedPath;
-    state.planFit = fit;
-    state.mediaPreview = plan.preview || null;
-    state.mediaKind = plan.kind;
-    renderPlan(plan);
-    setHidden('upload-plan', false);
-    setText('upload-message', '');
-    renderPreview();
-  });
+  fit.addEventListener('change', () => { void buildPlan(); });
 }
 
 function planIsCurrent() {
@@ -146,7 +134,6 @@ function bindSend() {
 
     state.uploading = true;
     setDisabled('btn-upload', true);
-    setDisabled('btn-plan-upload', true);
     setDisabled('btn-pick-image', true);
     setText('upload-message', 'sending · stream stops first');
 
@@ -158,7 +145,6 @@ function bindSend() {
     );
 
     state.uploading = false;
-    setDisabled('btn-plan-upload', false);
     setDisabled('btn-pick-image', false);
 
     if (!outcome) {
@@ -178,7 +164,6 @@ function bindSend() {
 export function bindImage() {
   bindPicker();
   bindFit();
-  bindPreview();
   bindConfirm();
   bindSend();
 }

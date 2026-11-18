@@ -43,10 +43,10 @@ pub use dcl::{
 };
 pub use display::{
     rotate_with_gyro_off, set_brightness, set_display_areas, set_gyro, set_idle_screen,
-    set_media_timing, set_recording, set_rgb_sync, set_rotation, DisplayAreas, DisplayConfig,
-    MediaTiming, RecordingConfig, BRIGHTNESS_MAX, DISPLAY_AREAS_LEN, DISPLAY_AREA_MAX,
-    DISPLAY_STYLE_MAX, MEDIA_TIMING_LEN, MEDIA_TIMING_MAX, RECORDING_OPTIONS_LEN, STYLE_NORMAL,
-    STYLE_RING, STYLE_STOPWATCH,
+    set_media_timing, set_mode, set_recording, set_rgb_sync, set_rotation, DisplayAreas,
+    DisplayConfig, DisplayTarget, MediaTiming, RecordingConfig, BRIGHTNESS_MAX, DISPLAY_AREAS_LEN,
+    DISPLAY_AREA_MAX, DISPLAY_STYLE_MAX, DISPLAY_TARGET_LEN, MEDIA_TIMING_LEN, MEDIA_TIMING_MAX,
+    RECORDING_OPTIONS_LEN, STYLE_NORMAL, STYLE_RING, STYLE_STOPWATCH,
 };
 pub use erase::erase_stored_images;
 pub use error::ProtocolError;

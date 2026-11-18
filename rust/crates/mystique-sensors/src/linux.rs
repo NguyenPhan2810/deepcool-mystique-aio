@@ -46,6 +46,7 @@ impl Default for LinuxSampler {
 
 impl Sampler for LinuxSampler {
     fn sample(&mut self) -> SensorSample {
+        let (cpu_fan_rpm, pump_rpm) = fan_speeds();
         SensorSample {
             cpu_temperature_c: cpu_temperature(),
             cpu_usage_percent: self.cpu_usage(),
@@ -54,6 +55,8 @@ impl Sampler for LinuxSampler {
                 .and_then(|(total, available)| procfs::memory_load_percent(total, available)),
             gpu_temperature_c: gpu_temperature(),
             cpu_clock_mhz: cpu_clock_mhz(),
+            pump_rpm,
+            cpu_fan_rpm,
         }
     }
 
@@ -64,6 +67,72 @@ impl Sampler for LinuxSampler {
 
 fn read_text(path: impl AsRef<Path>) -> Option<String> {
     fs::read_to_string(path).ok()
+}
+
+/// hwmon drivers that expose motherboard fan tachometers.
+const FAN_HWMON: &[&str] = &[
+    "nct6775",
+    "nct6776",
+    "nct6779",
+    "nct6791",
+    "nct6792",
+    "nct6793",
+    "nct6795",
+    "nct6796",
+    "nct6797",
+    "nct6798",
+    "it87",
+    "asus_wmi_sensors",
+    "gigabyte_wmi",
+    "dell_smm",
+];
+
+/// `(CPU fan, pump)` in RPM from the Super I/O.
+///
+/// A channel whose `fanN_label` says "pump" feeds the pump; the first other reading
+/// feeds the CPU fan. Boards without labels leave the pump `None` rather than guessing
+/// which header the AIO is on — a wrong guess would put fan RPM on the pump dial, which
+/// is the class of bug this whole change exists to remove.
+fn fan_speeds() -> (Option<u16>, Option<u16>) {
+    let Ok(entries) = fs::read_dir("/sys/class/hwmon") else {
+        return (None, None);
+    };
+
+    for entry in entries.flatten() {
+        let dir = entry.path();
+        let name = read_text(dir.join("name")).unwrap_or_default();
+        if !FAN_HWMON.contains(&name.trim()) {
+            continue;
+        }
+
+        let mut cpu_fan = None;
+        let mut pump = None;
+        for index in 1..=8 {
+            let Some(raw) = read_text(dir.join(format!("fan{index}_input"))) else {
+                continue;
+            };
+            let Ok(rpm) = raw.trim().parse::<u32>() else {
+                continue;
+            };
+            if rpm == 0 || rpm > u32::from(u16::MAX) {
+                continue;
+            }
+            let label = read_text(dir.join(format!("fan{index}_label")))
+                .unwrap_or_default()
+                .to_lowercase();
+            if label.contains("pump") {
+                pump.get_or_insert(rpm as u16);
+            } else if cpu_fan.is_none() {
+                cpu_fan = Some(rpm as u16);
+            }
+        }
+
+        if cpu_fan.is_some() || pump.is_some() {
+            return (cpu_fan, pump);
+        }
+    }
+
+    (None, None)
 }
 
 fn cpu_temperature() -> Option<u8> {

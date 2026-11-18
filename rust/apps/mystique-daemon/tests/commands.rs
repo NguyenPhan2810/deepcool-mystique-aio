@@ -454,6 +454,64 @@ fn a_reconnect_init_carries_idle_rgb_and_recording_state() {
 }
 
 #[test]
+fn the_fan_routing_is_host_side_and_only_pushes_a_frame() {
+    let state = Arc::new(ProviderState::new());
+    let now = Instant::now();
+    let mut core = open_core(&state, now);
+
+    let (response, _) = core.handle(
+        &request(
+            1,
+            cmd::SET_FAN_IO,
+            serde_json::json!({ "cpu": "pump", "pump": "cpu" }),
+        ),
+        now,
+    );
+    assert!(response.ok);
+    let outcome: CommandOutcome = response.into_data().unwrap();
+    assert_eq!(outcome.settings.fan_io_cpu, "pump");
+    assert_eq!(outcome.settings.fan_io_pump, "cpu");
+    assert_eq!(
+        outcome.packets.len(),
+        1,
+        "one redraw frame, no setting packet"
+    );
+    assert_eq!(outcome.packets[0].code, Some(0x01));
+
+    let (response, _) = core.handle(
+        &request(
+            2,
+            cmd::SET_FAN_IO,
+            serde_json::json!({ "cpu": "gpu", "pump": "cpu" }),
+        ),
+        now,
+    );
+    assert!(!response.ok);
+    assert_eq!(response.error.unwrap().code, "range");
+}
+
+#[test]
+fn the_mode_selector_writes_0x03_and_rejects_anything_else() {
+    let state = Arc::new(ProviderState::new());
+    let now = Instant::now();
+    let mut core = open_core(&state, now);
+
+    let (response, _) = core.handle(
+        &request(1, cmd::SET_MODE, serde_json::json!({ "mode": 3 })),
+        now,
+    );
+    assert!(response.ok);
+    assert_eq!(state.last_payload(0x03).as_deref(), Some([0x03].as_slice()));
+
+    let (response, _) = core.handle(
+        &request(2, cmd::SET_MODE, serde_json::json!({ "mode": 4 })),
+        now,
+    );
+    assert!(!response.ok);
+    assert_eq!(response.error.unwrap().code, "range");
+}
+
+#[test]
 fn a_raw_dry_run_builds_the_packet_without_a_device() {
     let state = Arc::new(ProviderState::new());
     let now = Instant::now();

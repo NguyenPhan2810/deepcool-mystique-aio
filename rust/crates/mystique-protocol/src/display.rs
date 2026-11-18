@@ -32,20 +32,24 @@
 //! [`rotate_with_gyro_off`] exists so that rule is named at the call site instead of
 //! being rediscovered by whoever wonders why a rotation command "did nothing".
 //!
-//! # `0x03` has no encoder here
+//! # `0x03` selects the target
 //!
-//! `0x03` selects the display mode (`01` Monitor, `02` Media, `03` Recording,
-//! `re/findings/17-mode-and-idle-screen.md`), but stored content dominates the panel
-//! while it exists. The driver does not send mode writes yet; `0x14` erase is the
-//! verified way back from stored media (`re/findings/15-driver-verification.md`).
+//! `0x03` is the display-target selector (`01` Monitor, `02` Media, `03` Recording,
+//! [`DisplayTarget`]), verified by four labelled vendor transitions
+//! (`re/findings/17-mode-and-idle-screen.md`). Stored content still dominates the panel
+//! while it exists: switching to Monitor does not erase an uploaded image, and `0x14`
+//! erase remains the verified way back from stored media
+//! (`re/findings/15-driver-verification.md`).
 
 mod config;
+mod mode;
 mod recording;
 
 pub use config::{
     rotate_with_gyro_off, set_brightness, set_gyro, set_idle_screen, set_rgb_sync, set_rotation,
     DisplayConfig, BRIGHTNESS_MAX,
 };
+pub use mode::{set_mode, DisplayTarget, DISPLAY_TARGET_LEN};
 pub use recording::{set_recording, RecordingConfig, RECORDING_OPTIONS_LEN};
 
 use crate::commands::Command;

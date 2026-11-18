@@ -230,21 +230,37 @@ impl Core {
         self.next_tick = now;
     }
 
-    fn tick_telemetry(&mut self, now: Instant, events: &mut Vec<Event>) {
-        let sample = self.sampler.sample();
-        let source = self.sampler.describe().to_owned();
-        let values = frame_values(&sample, &source);
-        let wire = sample.to_frame();
+    /// Changes the telemetry period in place and applies it on the next tick. The
+    /// rate is a host property: nothing about it is sent to the panel.
+    pub(crate) fn set_stream_interval(&mut self, interval: Duration, now: Instant) {
+        self.config.interval = interval;
+        self.stream.set_interval(interval);
+        self.note_stream_started(now);
+    }
 
+    fn tick_telemetry(&mut self, now: Instant, events: &mut Vec<Event>) {
+        let sample_started = Instant::now();
+        let sample = self.sampler.sample();
+        let sample_cost = sample_started.elapsed();
+        let source = self.sampler.describe().to_owned();
+        let (cpu_fan, pump) = self.settings.fan_io.route(&sample);
+        let values = frame_values(&sample, &source, cpu_fan, pump);
+        let wire = sample
+            .to_frame()
+            .with_fans(pump.unwrap_or(0), cpu_fan.unwrap_or(0));
+
+        let transfer_started = Instant::now();
         let sent = match self.panel.as_mut() {
             Some(panel) => panel.telemetry(&wire),
             None => return,
         };
+        let transfer_cost = transfer_started.elapsed();
         match sent {
             Ok(()) => {
                 let had_error = self.last_error.take().is_some();
                 self.stream.note_frame(values.clone());
-                self.next_tick = now + self.config.interval;
+                self.stream.note_timing(now, sample_cost, transfer_cost);
+                self.next_tick = advance(self.next_tick, now, self.config.interval);
                 events.push(Event::telemetry(values));
                 if had_error {
                     events.push(self.state_event());
@@ -260,7 +276,7 @@ impl Core {
                     self.panel = None;
                     self.schedule_retry(now, &error.code);
                 } else {
-                    self.next_tick = now + self.config.interval;
+                    self.next_tick = advance(self.next_tick, now, self.config.interval);
                 }
                 events.push(self.state_event());
             }
@@ -270,7 +286,11 @@ impl Core {
     /// One host sample for an immediate redraw frame, from the same sampler the stream
     /// uses, so the numbers match what the next streamed frame would carry.
     pub(crate) fn sample_frame(&mut self) -> mystique_protocol::TelemetryFrame {
-        self.sampler.sample().to_frame()
+        let sample = self.sampler.sample();
+        let (cpu_fan, pump) = self.settings.fan_io.route(&sample);
+        sample
+            .to_frame()
+            .with_fans(pump.unwrap_or(0), cpu_fan.unwrap_or(0))
     }
 
     /// Stops the stream and leaves the panel dark, deliberately. A process that is
@@ -291,6 +311,16 @@ impl Core {
     }
 }
 
+/// The next deadline, kept on the original phase so work time does not shorten the
+/// period. If the work overruns by more than one interval, the schedule resets instead
+/// of trying to send a backlog back to back.
+pub fn advance(deadline: Instant, now: Instant, interval: Duration) -> Instant {
+    match deadline.checked_add(interval) {
+        Some(next) if next > now => next,
+        _ => now.checked_add(interval).unwrap_or(now),
+    }
+}
+
 /// Exponential backoff, capped: base, 2×base, 4×base, … `max`.
 pub fn backoff(base: Duration, max: Duration, attempts: u32) -> Duration {
     if attempts == 0 {
@@ -304,6 +334,20 @@ pub fn backoff(base: Duration, max: Duration, attempts: u32) -> Duration {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_period_keeps_its_phase_instead_of_absorbing_work() {
+        let start = Instant::now();
+        let interval = Duration::from_millis(33);
+        // A 4 ms frame must not turn 33 ms into 37 ms.
+        assert_eq!(
+            advance(start, start + Duration::from_millis(4), interval),
+            start + interval
+        );
+        // A late tick resets the schedule; it never fires a backlog back to back.
+        let late = start + Duration::from_millis(50);
+        assert_eq!(advance(start, late, interval), late + interval);
+    }
 
     #[test]
     fn backoff_grows_and_caps() {

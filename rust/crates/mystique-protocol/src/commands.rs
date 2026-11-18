@@ -212,7 +212,7 @@ pub const SAFE_ALLOWLIST: [u8; 15] = [
 pub enum Command {
     Telemetry,
     DisplayConfig,
-    InitStep03,
+    SelectMode,
     InitStep04,
     InitStep05,
     InitStep06,
@@ -241,7 +241,7 @@ impl Command {
         match self {
             Self::Telemetry => CMD_TELEMETRY,
             Self::DisplayConfig => CMD_DISPLAY_CONFIG,
-            Self::InitStep03 => 0x03,
+            Self::SelectMode => 0x03,
             Self::InitStep04 => 0x04,
             Self::InitStep05 => 0x05,
             Self::InitStep06 => 0x06,
@@ -290,7 +290,7 @@ impl Command {
         match code {
             CMD_TELEMETRY => Some(Self::Telemetry),
             CMD_DISPLAY_CONFIG => Some(Self::DisplayConfig),
-            0x03 => Some(Self::InitStep03),
+            0x03 => Some(Self::SelectMode),
             0x04 => Some(Self::InitStep04),
             0x05 => Some(Self::InitStep05),
             0x06 => Some(Self::InitStep06),

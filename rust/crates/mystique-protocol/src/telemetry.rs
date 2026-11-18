@@ -13,9 +13,24 @@
 //! | offsets 0, 3, 6, 11 (CPU °C, CPU %, MEM %, GPU °C) | inherited; panel is known to show them, never re-verified visually here |
 //! | offset 8 (GPU block variant) | **semantics unresolved**; firmware does not band-check it |
 //! | offsets 9, 12, 14, 15, 17 (constant bytes) | **unknown**, never varied by production |
-//! | offsets 18, 20, 21..22, 24..25 (clock) | high-confidence inference from code and the captured bytes |
-//! | offsets 21..22 duplicated at 24..25 | **purpose unresolved**; the device does not require equality |
-//! | offsets 1..2, 4..5, 7, 10, 13, 16, 19, 23, 26..38 | **unknown**, zero in every production frame |
+//! | offset 18 (whole GHz) and 20 (fraction in 10 MHz) | verified against the vendor app, 2026-11-19 |
+//! | offsets 21..22 (CPU fan RPM) and 24..25 (pump RPM) | **verified, 2026-11-19**: the panel's two dials draw these slots, and the vendor frames carried the bridge's `Fan list` (`CPU`, `AIO Pump`) in them |
+//! | offsets 1..2, 4..5, 7, 10, 13, 16, 19, 23, 26..38 | **unknown**, zero in every captured vendor frame |
+//!
+//! # Correction, 2026-11-19
+//!
+//! This crate used to write the CPU clock fraction into **both** 21..22 and 24..25,
+//! believing them a duplicated clock field. They are the two RPM dials — **21..22 is CPU
+//! FAN, 24..25 is PUMP RPM** — and the panel dutifully drew the clock fraction as fan and
+//! pump speed, which is why both dials showed the same number in the 1000–8000 range and
+//! moved with the CPU clock.
+//!
+//! The first correction labelled the slots the other way round, misled by a capture taken
+//! while the owner's two Fan I/O mappings were crossed: the vendor app was feeding the
+//! pump reading into the CPU slot, so the steady 3341 appeared at 21..22. The panel's own
+//! dial order is the authority, and it put CPU first.
+//!
+//! The clock is fully described by offset 18 and 20 alone.
 
 use serde::{Deserialize, Serialize};
 
@@ -43,12 +58,14 @@ pub mod offset {
     pub const CONST_17: usize = 17;
     /// Whole GHz of the CPU clock.
     pub const CLOCK_GHZ: usize = 18;
-    /// Remainder marker, minimum `0x0A`.
+    /// Remainder in 10 MHz units, `(MHz % 1000) / 10`, floor `0x0A` in production.
     pub const CLOCK_MARKER: usize = 20;
-    /// LE16 `((MHz % 1000) / 10) * 100`.
-    pub const CLOCK_FRACTION_LE: usize = 21;
-    /// A duplicate of [`CLOCK_FRACTION_LE`]; the device does not require equality.
-    pub const CLOCK_FRACTION_DUP_LE: usize = 24;
+    /// LE16 CPU fan speed in RPM. Verified on the panel, 2026-11-19: the first dial of
+    /// `CPU FanSpeed + Pump Speed` draws this slot.
+    pub const CPU_FAN_RPM_LE: usize = 21;
+    /// LE16 pump speed in RPM. Verified on the panel, 2026-11-19: the second dial draws
+    /// this slot.
+    pub const PUMP_RPM_LE: usize = 24;
 }
 
 /// `0x05`, `0x06`, `0x09`: the three values the production code uses at offset 8,
@@ -69,7 +86,7 @@ pub const GPU_VARIANT_HIGH_THRESHOLD_C: u8 = 38;
 /// accepts `0x00` as well.
 pub const MIN_CLOCK_MARKER: u8 = 0x0A;
 
-/// The five values the panel is known to display.
+/// The values the panel is known to display.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct TelemetryFrame {
     pub cpu_temperature_c: u8,
@@ -79,6 +96,12 @@ pub struct TelemetryFrame {
     /// Megahertz. Values below 1000 or above 9999 lose information in the
     /// whole-GHz field, exactly as the reference implementation does.
     pub cpu_clock_mhz: u16,
+    /// `0x01[21..22]`. `0` means "no reading", which is what the panel draws as 0 RPM.
+    #[serde(default)]
+    pub pump_rpm: u16,
+    /// `0x01[24..25]`. `0` means "no reading", which is what the panel draws as 0 RPM.
+    #[serde(default)]
+    pub cpu_fan_rpm: u16,
 }
 
 impl TelemetryFrame {
@@ -95,7 +118,17 @@ impl TelemetryFrame {
             memory_load_percent,
             gpu_temperature_c,
             cpu_clock_mhz,
+            pump_rpm: 0,
+            cpu_fan_rpm: 0,
         }
+    }
+
+    /// Adds the two RPM readings. Kept separate from [`new`] so the five-value frame
+    /// stays the baseline every capture and test was written against.
+    pub const fn with_fans(mut self, pump_rpm: u16, cpu_fan_rpm: u16) -> Self {
+        self.pump_rpm = pump_rpm;
+        self.cpu_fan_rpm = cpu_fan_rpm;
+        self
     }
 
     /// Chooses the offset-8 byte from GPU temperature, exactly as the reference
@@ -126,17 +159,14 @@ impl TelemetryFrame {
         payload[offset::CONST_15] = 0x0C;
         payload[offset::CONST_17] = 0x07;
 
-        let whole_ghz = (self.cpu_clock_mhz / 1000) as u8;
-        let remainder = self.cpu_clock_mhz % 1000;
-        let marker = (remainder / 10) as u8;
-        let fraction = u16::from(marker) * 100;
-
-        payload[offset::CLOCK_GHZ] = whole_ghz;
+        payload[offset::CLOCK_GHZ] = (self.cpu_clock_mhz / 1000) as u8;
+        let marker = ((self.cpu_clock_mhz % 1000) / 10) as u8;
         payload[offset::CLOCK_MARKER] = marker.max(MIN_CLOCK_MARKER);
-        payload[offset::CLOCK_FRACTION_LE..offset::CLOCK_FRACTION_LE + 2]
-            .copy_from_slice(&fraction.to_le_bytes());
-        payload[offset::CLOCK_FRACTION_DUP_LE..offset::CLOCK_FRACTION_DUP_LE + 2]
-            .copy_from_slice(&fraction.to_le_bytes());
+
+        payload[offset::CPU_FAN_RPM_LE..offset::CPU_FAN_RPM_LE + 2]
+            .copy_from_slice(&self.cpu_fan_rpm.to_le_bytes());
+        payload[offset::PUMP_RPM_LE..offset::PUMP_RPM_LE + 2]
+            .copy_from_slice(&self.pump_rpm.to_le_bytes());
 
         payload
     }
@@ -146,11 +176,12 @@ impl TelemetryFrame {
 mod tests {
     use super::*;
 
-    /// The exact payload of `re/fixtures/04-telemetry-baseline-0x01.json`:
-    /// CPU 36 °C, 9 %, 39 % RAM, GPU 48 °C, 4300 MHz.
+    /// The exact payload `MystiquePackets.BuildDisplayPayload` emitted for these values
+    /// before the 2026-11-19 correction, except that the two RPM slots are now zero:
+    /// that encoder wrote the clock fraction there, which is the bug this crate fixed.
     const BASELINE: [u8; 39] = [
         0x24, 0x00, 0x00, 0x09, 0x00, 0x00, 0x27, 0x00, 0x09, 0x03, 0x00, 0x30, 0x05, 0x00, 0x06,
-        0x0C, 0x00, 0x07, 0x04, 0x00, 0x1E, 0xB8, 0x0B, 0x00, 0xB8, 0x0B, 0x00, 0x00, 0x00, 0x00,
+        0x0C, 0x00, 0x07, 0x04, 0x00, 0x1E, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     ];
 
@@ -166,27 +197,44 @@ mod tests {
         let payload = frame.encode();
         assert_eq!(payload[offset::CLOCK_GHZ], 4);
         assert_eq!(payload[offset::CLOCK_MARKER], 30);
+        // The clock is fully described by 18 and 20; the RPM slots are not its fraction.
+        assert_eq!(u16::from_le_bytes([payload[21], payload[22]]), 0);
+        assert_eq!(u16::from_le_bytes([payload[24], payload[25]]), 0);
+    }
+
+    #[test]
+    fn fans_use_their_own_little_endian_slots() {
+        // The vendor frame captured 2026-11-19 carried the sensor bridge's own readings:
+        // `Fan list: { "AIO Pump": 3341, "CPU": 1326 }`. The panel's first dial draws
+        // 21..22 (CPU FAN) and its second draws 24..25 (PUMP RPM) — confirmed by the
+        // owner seeing them crossed when the two slots were.
+        let payload = TelemetryFrame::new(36, 9, 39, 48, 4300)
+            .with_fans(3341, 1326)
+            .encode();
         assert_eq!(
             u16::from_le_bytes([payload[21], payload[22]]),
-            3000,
-            "((4300 % 1000) / 10) * 100"
+            1326,
+            "CPU fan RPM at 21..22"
         );
-        assert_eq!(&payload[21..23], &payload[24..26]);
+        assert_eq!(
+            u16::from_le_bytes([payload[24], payload[25]]),
+            3341,
+            "pump RPM at 24..25"
+        );
+        // A fan reading must never disturb the clock fields.
+        assert_eq!(payload[offset::CLOCK_GHZ], 4);
+        assert_eq!(payload[offset::CLOCK_MARKER], 30);
     }
 
     #[test]
     fn clock_below_one_ghz_keeps_the_marker_floor() {
-        // The reference implementation clamps the marker but computes the fraction
-        // from the unclamped remainder.
         let payload = TelemetryFrame::new(0, 0, 0, 0, 50).encode();
         assert_eq!(payload[offset::CLOCK_GHZ], 0);
         assert_eq!(payload[offset::CLOCK_MARKER], MIN_CLOCK_MARKER);
-        assert_eq!(u16::from_le_bytes([payload[21], payload[22]]), 500);
 
-        // 800 MHz: raw marker 80, above the floor, so both fields are untouched.
+        // 800 MHz: raw marker 80, above the floor, so it is written untouched.
         let payload = TelemetryFrame::new(0, 0, 0, 0, 800).encode();
         assert_eq!(payload[offset::CLOCK_MARKER], 80);
-        assert_eq!(u16::from_le_bytes([payload[21], payload[22]]), 8000);
     }
 
     #[test]

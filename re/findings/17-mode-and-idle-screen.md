@@ -65,3 +65,20 @@ While in Media mode the vendor also moved:
   decides what is visible.
 - Rename `0x02` byte 0 from `unknown_byte0` to **idle screen**, and expose it as a toggle.
 - Do not claim `0x02[0]` blanks the screen — that is brightness 0.
+
+## Driver status
+
+`0x03` is now writable from our own code: `mystique-protocol` has
+`DisplayTarget { Monitor = 01, Media = 02, Recording = 03 }` and `set_mode`, and the daemon
+exposes `{"cmd":"set_mode","args":{"mode":3}}`.
+
+Sent to the real panel on 2026-11-18 and accepted:
+
+```
+AA 2E 03 03 00 … 00 48 49 44 43 F6 01     0x03 payload 03 -> result success
+AA 2E 03 01 00 … 00 48 49 44 43 F4 01     0x03 payload 01 -> result success
+```
+
+`mode: 9` is rejected at the daemon with code `range` and never reaches the wire.
+
+Nothing here changes the stored-media rule: a mode write does not erase an uploaded image.

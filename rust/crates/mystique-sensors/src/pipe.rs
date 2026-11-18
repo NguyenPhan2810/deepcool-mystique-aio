@@ -12,6 +12,12 @@
 
 #[cfg(windows)]
 use std::io::Read;
+#[cfg(windows)]
+use std::sync::atomic::{AtomicBool, Ordering};
+#[cfg(windows)]
+use std::sync::{Arc, Mutex};
+#[cfg(windows)]
+use std::time::{Duration, Instant};
 
 use crate::SensorSample;
 
@@ -116,6 +122,8 @@ pub fn parse_sensor_json(bytes: &[u8]) -> Result<SensorSample, FrameError> {
             let mhz = value.round().clamp(0.0, f64::from(u16::MAX));
             mhz as u16
         }),
+        pump_rpm: fan(&payload, "AIO Pump"),
+        cpu_fan_rpm: fan(&payload, "CPU"),
     })
 }
 
@@ -124,6 +132,17 @@ fn sensor(root: &serde_json::Value, name: &str) -> Option<f64> {
         .get("Value")?
         .as_f64()
         .filter(|value| value.is_finite())
+}
+
+/// `"Fan list"` is an object of `name -> number`, not the usual `{ "Value": … }`
+/// wrapper: `{"AIO Pump": 3341.0, "CPU": 1326.0}`. Verified against the live bridge
+/// on 2026-11-19 (`re/findings/21-fan-and-pump-rpm.md`).
+fn fan(root: &serde_json::Value, name: &str) -> Option<u16> {
+    let value = root.get("Fan list")?.get(name)?.as_f64()?;
+    if !value.is_finite() || value <= 0.0 {
+        return None;
+    }
+    Some(value.round().clamp(0.0, f64::from(u16::MAX)) as u16)
 }
 
 fn clamp_u8(value: f64, maximum: f64) -> u8 {
@@ -290,6 +309,89 @@ impl PipeSensor {
             return Err(PipeError::Frame(FrameError::TooLarge(self.buffer.len())));
         }
         Ok(())
+    }
+}
+
+/// A vendor-bridge reader that never blocks its caller.
+///
+/// The bridge pushes one snapshot every ~1.1 s. Reading it inline would cap the whole
+/// driver at that rate, which is what the first rate measurement showed: a 100 ms
+/// interval produced a 1140 ms period with `sample_us` at 1 108 004 while the panel
+/// acknowledged the same frame in 490 µs. The blocking read lives on its own thread;
+/// the sampler copies the newest snapshot and is free to send at any rate.
+///
+/// The feed is a **freshness** source, not a rate source: at 30 Hz the numbers still
+/// change about once a second, because that is how often the vendor produces them.
+#[cfg(windows)]
+pub struct PipeFeed {
+    latest: Arc<Mutex<Option<Reading>>>,
+    stop: Arc<AtomicBool>,
+}
+
+#[cfg(windows)]
+#[derive(Clone, Copy)]
+struct Reading {
+    at: Instant,
+    sample: SensorSample,
+}
+
+#[cfg(windows)]
+impl PipeFeed {
+    /// Connects and starts the reader. `None` when the bridge is absent, which is the
+    /// normal case on a machine with the vendor stack removed.
+    pub fn start() -> Option<Self> {
+        let mut sensor = PipeSensor::connect().ok()?;
+        let latest = Arc::new(Mutex::new(None));
+        let stop = Arc::new(AtomicBool::new(false));
+
+        let sink = Arc::clone(&latest);
+        let flag = Arc::clone(&stop);
+        std::thread::Builder::new()
+            .name("vendor-sensors".to_owned())
+            .spawn(move || {
+                while !flag.load(Ordering::Relaxed) {
+                    match sensor.next_sample() {
+                        Ok(sample) => {
+                            if let Ok(mut slot) = sink.lock() {
+                                *slot = Some(Reading {
+                                    at: Instant::now(),
+                                    sample,
+                                });
+                            }
+                        }
+                        // A closed bridge is normal: the thread simply ends and the
+                        // sampler falls back to sysinfo.
+                        Err(_) => break,
+                    }
+                }
+            })
+            .ok()?;
+
+        Some(Self { latest, stop })
+    }
+
+    /// The newest snapshot, if it is younger than `max_age`.
+    pub fn fresh(&self, max_age: Duration) -> Option<SensorSample> {
+        let slot = self.latest.lock().ok()?;
+        let reading = (*slot)?;
+        (reading.at.elapsed() <= max_age).then_some(reading.sample)
+    }
+
+    /// True once at least one snapshot has arrived.
+    pub fn is_producing(&self) -> bool {
+        self.latest
+            .lock()
+            .map(|slot| slot.is_some())
+            .unwrap_or(false)
+    }
+}
+
+#[cfg(windows)]
+impl Drop for PipeFeed {
+    fn drop(&mut self) {
+        // The reader may sit in a blocking read for up to one push interval; it is not
+        // joined, so shutdown never waits on the vendor.
+        self.stop.store(true, Ordering::Relaxed);
     }
 }
 

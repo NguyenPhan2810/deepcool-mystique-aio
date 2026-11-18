@@ -165,6 +165,28 @@ function bindRgbSync() {
   });
 }
 
+function bindFanIo() {
+  const cpu = el('io-cpu');
+  const pump = el('io-pump');
+  if (!cpu || !pump) return;
+
+  // Host routing, not a device command: each dial is told one number. Changing either
+  // selector pushes one frame so both dials redraw with the new source.
+  const send = async () => {
+    const outcome = await runCommand(
+      'set_fan_io',
+      { cpu: cpu.value, pump: pump.value },
+      'fanio',
+    );
+    if (outcome) applyOutcome(outcome);
+    else applySettings(state.lastSettings);
+    renderPreview();
+  };
+
+  cpu.addEventListener('change', () => { void send(); });
+  pump.addEventListener('change', () => { void send(); });
+}
+
 function bindRecording() {
   const clock = el('record-freq');
   const temp = el('record-temp');
@@ -184,56 +206,61 @@ function bindRecording() {
 }
 
 function bindAreas() {
-  const send = el('btn-areas-send');
   const main = el('area-main');
   const style = el('area-style');
   const aux = el('area-aux');
-  if (!send || !main || !style || !aux) return;
+  if (!main || !style || !aux) return;
 
+  // No Send button: a select is a committed choice, so it goes to the panel. The only
+  // reason to hold it back would be a multi-field form, and these three fields are one
+  // layout whose intermediate states are all valid.
   const sendAreas = async () => {
-    setDisabled('btn-areas-send', true);
     const outcome = await runCommand(
       'set_areas',
       { main: Number(main.value), style: Number(style.value), aux: Number(aux.value) },
       'areas',
     );
-    setDisabled('btn-areas-send', false);
     if (outcome) applyOutcome(outcome);
     else applySettings(state.lastSettings);
     renderPreview();
   };
 
-  send.addEventListener('click', () => { void sendAreas(); });
-
   main.addEventListener('change', () => {
     applyStyleRow(main.value);
     renderPreview();
+    void sendAreas();
   });
-  style.addEventListener('change', renderPreview);
-  aux.addEventListener('change', renderPreview);
+  style.addEventListener('change', () => {
+    renderPreview();
+    void sendAreas();
+  });
+  aux.addEventListener('change', () => {
+    renderPreview();
+    void sendAreas();
+  });
 }
 
 function bindMedia() {
-  const send = el('btn-media-send');
-  if (!send) return;
-  send.addEventListener('click', async () => {
+  // Same rule: the radios are the setting. Changing one writes it.
+  const send = async () => {
     const time = checkedValue('media-time');
     const animation = checkedValue('media-animation');
     if (time === null || animation === null) return;
-    setDisabled('btn-media-send', true);
     const outcome = await runCommand(
       'set_media_timing',
       { time: Number(time), animation: Number(animation) },
       'media',
     );
-    setDisabled('btn-media-send', false);
     if (outcome) applyOutcome(outcome);
     else applySettings(state.lastSettings);
-  });
+  };
+
+  for (const input of document.querySelectorAll('input[name="media-time"], input[name="media-animation"]')) {
+    input.addEventListener('change', () => { void send(); });
+  }
 }
 
 function bindLabels() {
-  const save = el('btn-labels-save');
   const cpu = el('label-cpu');
   const gpu = el('label-gpu');
 
@@ -243,18 +270,30 @@ function bindLabels() {
 
   const send = async () => {
     if (!cpu || !gpu) return;
-    setDisabled('btn-labels-save', true);
     const outcome = await runCommand('set_labels', { cpu: cpu.value, gpu: gpu.value }, 'labels');
-    setDisabled('btn-labels-save', false);
     if (outcome) applyOutcome(outcome);
   };
 
-  if (save) save.addEventListener('click', () => { void send(); });
+  // Text is the one field where every keystroke is not a commitment. Debounce while
+  // typing, and send immediately on blur or Enter so leaving the field always commits.
+  let timer = null;
+  const later = () => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => { timer = null; void send(); }, 500);
+  };
   for (const input of [cpu, gpu]) {
     if (!input) continue;
+    input.addEventListener('input', later);
+    input.addEventListener('blur', () => {
+      if (timer) clearTimeout(timer);
+      timer = null;
+      void send();
+    });
     input.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         event.preventDefault();
+        if (timer) clearTimeout(timer);
+        timer = null;
         void send();
       }
     });
@@ -329,6 +368,7 @@ export function bindSections() {
   bindGyro();
   bindIdleScreen();
   bindRgbSync();
+  bindFanIo();
   bindRecording();
   bindAreas();
   bindMedia();

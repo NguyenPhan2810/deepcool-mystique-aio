@@ -3,16 +3,28 @@
 //! The named pipe is **not required**. It exists only while DeepCool's helper service
 //! is running, and the driver must work without it — the whole point of not depending
 //! on the vendor app.
+//!
+//! The pipe pushes once per ~1.1 s, so it is read on a thread of its own
+//! ([`PipeFeed`]) and this sampler only ever copies the newest snapshot. A blocking
+//! read on the sampling path would cap the driver at the vendor's push rate, which it
+//! did until it was measured.
+
+use std::time::Duration;
 
 use sysinfo::{Components, System};
 
-use crate::pipe::PipeSensor;
+use crate::pipe::PipeFeed;
 use crate::{Sampler, SensorSample};
+
+/// How old a vendor snapshot may be before the sampler prefers a live sysinfo read.
+/// The bridge pushes every ~1.1 s, so this tolerates one missed push.
+const VENDOR_MAX_AGE: Duration = Duration::from_secs(3);
 
 pub struct WindowsSampler {
     system: System,
     components: Components,
-    pipe: Option<PipeSensor>,
+    vendor: Option<PipeFeed>,
+    last_used_vendor: bool,
 }
 
 impl WindowsSampler {
@@ -23,13 +35,14 @@ impl WindowsSampler {
         Self {
             system,
             components: Components::new_with_refreshed_list(),
-            pipe: PipeSensor::connect().ok(),
+            vendor: PipeFeed::start(),
+            last_used_vendor: false,
         }
     }
 
     /// True when the vendor sensor bridge was reachable at startup.
     pub fn has_vendor_pipe(&self) -> bool {
-        self.pipe.is_some()
+        self.vendor.is_some()
     }
 
     fn sample_sysinfo(&mut self) -> SensorSample {
@@ -63,6 +76,11 @@ impl WindowsSampler {
                 &["gpu", "nvidia", "radeon"],
             ),
             cpu_clock_mhz,
+            // `sysinfo` exposes no fan sensors. The vendor bridge is the only fan source
+            // on Windows, so without it the frame carries 0, which the panel draws as
+            // 0 RPM — the same thing the vendor app shows with no mapping configured.
+            pump_rpm: None,
+            cpu_fan_rpm: None,
         }
     }
 }
@@ -75,20 +93,26 @@ impl Default for WindowsSampler {
 
 impl Sampler for WindowsSampler {
     fn sample(&mut self) -> SensorSample {
-        if let Some(pipe) = self.pipe.as_mut() {
-            match pipe.next_sample() {
-                Ok(sample) => return sample,
-                // A broken or closed pipe is a normal condition (vendor service
-                // stopped). Drop it permanently and use sysinfo from here on.
-                Err(_) => self.pipe = None,
-            }
+        // A copy of the newest vendor snapshot, when the bridge is alive and not
+        // stalled. This costs microseconds, so the stream rate is decided by the link,
+        // not by the sensor source.
+        if let Some(sample) = self
+            .vendor
+            .as_ref()
+            .and_then(|feed| feed.fresh(VENDOR_MAX_AGE))
+        {
+            self.last_used_vendor = true;
+            return sample;
         }
+        self.last_used_vendor = false;
         self.sample_sysinfo()
     }
 
     fn describe(&self) -> &'static str {
-        if self.has_vendor_pipe() {
-            "windows: deepcool_sensor_data pipe"
+        if self.last_used_vendor {
+            "windows: deepcool_sensor_data pipe (1.1 s push)"
+        } else if self.vendor.is_some() {
+            "windows: sysinfo WMI/PDH (vendor pipe stalled)"
         } else {
             "windows: sysinfo WMI/PDH (vendor pipe absent)"
         }
@@ -120,11 +144,6 @@ fn component_temperature(components: &Components, needles: &[&str]) -> Option<u8
         .map(|celsius| celsius.round() as u8)
 }
 
-/// Windows-only helper used by the CLI to report whether the vendor pipe was seen.
-pub fn vendor_pipe_present() -> bool {
-    PipeSensor::connect().is_ok()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -146,7 +165,8 @@ mod tests {
         let mut sampler = WindowsSampler {
             system: System::new(),
             components: Components::new_with_refreshed_list(),
-            pipe: None,
+            vendor: None,
+            last_used_vendor: false,
         };
         let sample = sampler.sample();
         let _ = sample.to_frame();

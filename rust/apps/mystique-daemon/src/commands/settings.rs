@@ -1,18 +1,18 @@
-//! The six documented settings commands plus screen power. Each one records the exact
+//! The documented settings commands plus screen power. Each one records the exact
 //! packet it wrote and returns the session snapshot that follows it.
 
 use std::time::Instant;
 
 use mystique_ipc::{args, CommandError, PacketRecord, Request, Response};
 use mystique_protocol::{
-    erase_stored_images, Command, CommandPacket, DisplayAreas, MediaTiming, RecordingConfig,
-    Rotation, SETTLE_STEP,
+    erase_stored_images, set_mode, Command, CommandPacket, DisplayAreas, DisplayTarget,
+    MediaTiming, RecordingConfig, Rotation, SETTLE_STEP,
 };
 
 use super::{failed, ok, parse};
 use crate::core::Core;
 use crate::error;
-use crate::state::validate_label;
+use crate::state::{validate_label, FanIo, FanSource};
 
 impl Core {
     pub(super) fn command_set_brightness(&mut self, request: &Request, now: Instant) -> Response {
@@ -140,6 +140,76 @@ impl Core {
 
     /// `0x05`: the two Recording-mode graph options. The graphs only draw with data, so
     /// the write is followed by one immediate `0x01` frame, exactly like `0x04`.
+    /// The two RPM dials are routed on the host: the panel is told one number per dial
+    /// and nothing else. Changing the routing therefore sends no setting packet, only
+    /// one immediate frame so the dials redraw with the new source.
+    pub(super) fn command_set_fan_io(&mut self, request: &Request, now: Instant) -> Response {
+        let args = match parse::<args::FanIo>(request) {
+            Ok(value) => value,
+            Err(error) => return failed(request, error),
+        };
+        let (Some(cpu), Some(pump)) = (FanSource::parse(&args.cpu), FanSource::parse(&args.pump))
+        else {
+            return failed(
+                request,
+                CommandError::range(format!(
+                    "fan sources must be cpu, pump or none; got \"{}\" and \"{}\"",
+                    args.cpu, args.pump
+                )),
+            );
+        };
+        self.settings.fan_io = FanIo { cpu, pump };
+
+        let record = match self.redraw_frame(now) {
+            Ok(record) => record,
+            Err(error) => return failed(request, error),
+        };
+        ok(
+            request,
+            &self.outcome(
+                vec![record],
+                format!(
+                    "fan routing: first dial {}, second dial {}; one frame pushed to redraw",
+                    cpu.as_str(),
+                    pump.as_str()
+                ),
+            ),
+        )
+    }
+
+    pub(super) fn command_set_mode(&mut self, request: &Request, now: Instant) -> Response {
+        let args = match parse::<args::Mode>(request) {
+            Ok(value) => value,
+            Err(error) => return failed(request, error),
+        };
+        let target = match DisplayTarget::from_raw(args.mode) {
+            Some(target) => target,
+            None => {
+                return failed(
+                    request,
+                    CommandError::range(format!(
+                        "mode {} is not 1 Monitor, 2 Media or 3 Recording",
+                        args.mode
+                    )),
+                )
+            }
+        };
+        let records = match self.write_packets(vec![set_mode(target)], now) {
+            Ok(records) => records,
+            Err(error) => return failed(request, error),
+        };
+        ok(
+            request,
+            &self.outcome(
+                records,
+                format!(
+                    "0x03 = {} sent; stored images still hold the panel until erase",
+                    target.label()
+                ),
+            ),
+        )
+    }
+
     pub(super) fn command_set_recording(&mut self, request: &Request, now: Instant) -> Response {
         let args = match parse::<args::Recording>(request) {
             Ok(value) => value,

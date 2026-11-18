@@ -67,15 +67,15 @@ One process, one owner. That process is the daemon. This window:
 - starts no telemetry thread and takes no host sample;
 - asks the daemon to open, release, configure or stream;
 - shows the daemon, handle, vendor service and stream as status-bar indicators, with the
-  frame count and sensor source beside them;
-- keeps the endpoint, health sentence and session controls behind a closed **Session**
-  disclosure under the device header.
+  five rate presets beside the stream lamp;
+- keeps the endpoint, health sentence, session controls and stream counters behind a
+  closed **Session** disclosure under the device header.
 
 On start, if the endpoint is absent, the app spawns `mystique-daemon` as a child, waits
 up to three seconds for the socket, then connects. That spawn is a convenience, not a
 lifetime claim: on exit this window drops its handle to the child and **never terminates
 it**. The daemon keeps the panel and the stream for the next window. The only way this
-window stops a daemon is the explicit **Stop daemon** control in the session strip, which
+window stops a daemon is the explicit **Stop daemon** control in the session disclosure, which
 sends a `shutdown` request and says that the panel will be released and telemetry will
 stop.
 The daemon's single-instance lock makes a redundant spawn harmless: the duplicate exits
@@ -88,7 +88,7 @@ is passed to the child as `--endpoint`.
 ### The vendor service is not the daemon
 
 `MystiqueService` is DeepCool's telemetry service, and it also wants the USB interface.
-While it runs, the daemon's open returns access-denied and the session strip says so.
+While it runs, the daemon's open returns access-denied and the session disclosure says so.
 `Stop vendor service` and `Start vendor service` run `sc.exe` on **`MystiqueService`**;
 they do not touch the daemon, and the UI says so next to the buttons. Stopping the vendor
 service needs elevation. The exact `sc.exe` output is shown inline; it is never
@@ -110,13 +110,20 @@ from `mystique-ipc`.
 | `set_brightness` | `set_brightness` | `{ brightness }` |
 | `set_rotation` | `set_rotation` | `{ rotation }`; clears the gyro in the same payload |
 | `set_gyro` | `set_gyro` | `{ enabled }` |
+| `set_mode` | `set_mode` | `{ mode }`: `1` Monitor, `2` Media, `3` Recording; `0x03` |
+| `set_fan_io` | `set_fan_io` | `{ cpu, pump }`: `cpu`\|`pump`\|`none`; host routing for the two RPM dials, one redraw frame, no setting packet |
+| `set_idle_screen` | `set_idle_screen` | `{ enabled }`; `0x02[0]`, not screen power |
+| `set_rgb_sync` | `set_rgb_sync` | `{ enabled }`; `0x02[3]` |
+| `set_recording` | `set_recording` | `{ cpu_clock, cpu_temp }`; `0x05`, then one redraw frame |
 | `set_screen_power` | `set_screen` | UI `{ lit }` → daemon `{ enabled }`; off is brightness 0 |
 | `erase_images` | `erase_images` | `0x14`, destructive, no read-back |
 | `set_areas` | `set_areas` | `{ main, style, aux }` |
 | `set_media_timing` | `set_media_timing` | `{ time, animation }` |
 | `set_labels` | `set_labels` | `{ cpu, gpu }`, nulls allowed |
+| `raw_packet` | `raw_packet` | `{ command, payload, pipe, dry_run }`; daemon builds the 48-byte packet |
 | `start_telemetry` | `start_stream` | rename only |
 | `stop_telemetry` | `stop_stream` | rename only |
+| `set_stream_rate` | `set_stream_rate` | `{ hz }`, `1..=120`; the UI offers 1/5/10/20/30 |
 | `telemetry_status` | `device_state` | projects the `telemetry` extension |
 | `plan_upload` | `plan_upload` | `{ path, fit }`; caches the plan in the daemon |
 | `upload_image` | `upload_image` | `{ path, fit }`; stops the stream first |
@@ -129,6 +136,18 @@ from `mystique-ipc`.
 
 `set_screen_power` and `start_telemetry`/`stop_telemetry` keep their names on this side so
 the frontend did not have to change; the renames live in the command bodies.
+
+`set_stream_rate` changes the daemon's host-side period. It sends nothing to the panel,
+starts and stops nothing, and returns the same `TelemetryStatus` as the other stream
+commands. The five presets are 1/5/10/20/30 Hz; the active one is the accent and a failed
+change appears in the existing `stream-error` node. Opening the session sheet takes one
+status snapshot; the sheet does not poll, so inspecting it cannot perturb the timing.
+
+`set_mode` sends `0x03` with `1` Monitor, `2` Media or `3` Recording. The mode buttons
+switch the view as soon as they are clicked, but their active state changes only after the
+daemon accepts the write. A failed send leaves the last accepted button active and appears
+in the existing `app-error` node. A mode write does not erase stored content; the erase
+control remains the way back from an uploaded image.
 
 Success payloads are the IPC types: `StatusDto`, `DeviceState`, `OpenResult`,
 `CommandOutcome`, `TelemetryStatus`, `UploadPlanSummary`. On failure the daemon's
@@ -153,7 +172,7 @@ Three codes exist only here:
 
 `ServiceResult` for the two admin actions is
 `{ "output": "verbatim sc.exe text", "device": DeviceState | null }`. A `null` device is
-the daemon being unreachable, and the session strip carries the reason. The `sc.exe`
+the daemon being unreachable, and the session disclosure carries the reason. The `sc.exe`
 summary in the strip opens the verbatim output; it is never paraphrased.
 
 ### Events
@@ -162,10 +181,10 @@ The backend emits four Tauri events. The frontend never polls.
 
 | Event | Payload | Rendered by |
 |---|---|---|
-| `daemon-connection` | `{ phase, endpoint, spawned_by_ui, launch_error, health }` | status bar, session strip, log LIVE lamp |
-| `daemon-state` | `DeviceState` (with the `telemetry` extension) | status bar, session strip, every settings group, panel preview, telemetry strip |
+| `daemon-connection` | `{ phase, endpoint, spawned_by_ui, launch_error, health }` | status bar, session disclosure, log LIVE lamp |
+| `daemon-state` | `DeviceState` (with the `telemetry` extension) | status bar, session disclosure, every settings group, panel preview |
 | `daemon-status` | `StatusDto` | rotation source, preview `0x10` line |
-| `daemon-telemetry` | `FrameValues` | gauge strip, preview, recording graph |
+| `daemon-telemetry` | `FrameValues` | session counters, preview, recording graph |
 
 `health` is computed in Rust, not JavaScript:
 
@@ -190,7 +209,7 @@ a reconnected (or reopened) window catches up.
 | Endpoint absent, and the child could not start | **Daemon not running**; the detail names the spawn failure verbatim |
 | Endpoint absent, no spawn attempted yet | **Daemon not running**; "…not there (reason). The panel is free" |
 | Daemon connected, panel not on the bus | **Panel not found**; the daemon is retrying by itself |
-| Daemon connected, device open, vendor service also running | **Two owners**, in a warning line in the session strip; the app says this should be impossible and tells the owner to stop the vendor service |
+| Daemon connected, device open, vendor service also running | **Two owners**, in a warning line in the session disclosure; the app says this should be impossible and tells the owner to stop the vendor service |
 | Request unanswered for 10 s | **The daemon did not answer**; the client drops the link, reconnects, and the request reports `daemon_timeout` |
 
 ## What is proven, and what is not
@@ -206,7 +225,7 @@ a reconnected (or reopened) window catches up.
 | Idle screen (`0x02` byte 0) | **Verified from the USB capture**, 2026-11-18: toggled exactly when the vendor control changed, and back (`re/findings/17-mode-and-idle-screen.md`). It does not blank the panel. |
 | RGB sync (`0x02` byte 3) | **Verified from the USB capture**, 2026-11-18: toggled six times with the vendor's **Sync with Motherboard RGB Light Effect** checkbox (`re/findings/18-rgb-and-recording.md`). It is an LCD flag, not an LED command. |
 | Gyro gating (`0x02` byte 1) | **Proven on this panel.** Rotation is ignored while the gyro is on, so rotation always clears it in the same payload. |
-| Display mode (`0x03`) | **Verified from the USB capture**, 2026-11-18: `01` Monitor, `02` Media, `03` Recording, with four labelled transitions (`re/findings/17-mode-and-idle-screen.md`). The driver does not send mode writes yet. |
+| Display mode (`0x03`) | **Verified from the USB capture**, 2026-11-18: `01` Monitor, `02` Media, `03` Recording, with four labelled transitions (`re/findings/17-mode-and-idle-screen.md`). The mode selector sends it; a mode write does **not** erase stored content. |
 | Erase / return to dashboard (`0x14`) | **Proven on this panel**, 2026-11-18: it deleted the stored content and the panel showed machine info. It is destructive and has no read-back. |
 | Media timing (`0x07`) | High confidence from the capture, **not replayed from this driver**. |
 | Recording options (`0x05`) | **Verified from the USB capture**, 2026-11-18: index 0 CPU frequency graph, index 1 CPU temperature graph; both bits moved with the vendor toggles (`re/findings/18-rgb-and-recording.md`). A `0x05` write is followed by one redraw frame. |
@@ -235,13 +254,13 @@ non-zero value (70 if unknown) for on — through the same five-byte payload. By
 **idle screen display**, verified separately in `re/findings/17-mode-and-idle-screen.md`
 and controllable from the Idle screen switch.
 
-### Returning from media is erase, not a mode byte
+### Stored media still needs erase
 
 `0x03` is the display mode (`01` Monitor, `02` Media, `03` Recording,
 `re/findings/17-mode-and-idle-screen.md`), but **stored media dominates the panel while it
 exists**. On 2026-11-18, with the panel holding an uploaded image, `0x14` erase alone
-returned it to machine info (`re/findings/15-driver-verification.md`). Mode decides
-behaviour; stored content decides what is visible.
+returned it to machine info (`re/findings/15-driver-verification.md`). A mode write does
+not erase stored content.
 
 **Return to dashboard** and the standalone **Erase stored images** button call the same
 `erase_images` request. The section asks for confirmation first, because the action
@@ -279,7 +298,13 @@ Status bar:
 - `daemon-dot`, `daemon-status`
 - `handle-dot`, `conn-device-open`
 - `service-dot`, `conn-service-running`
-- `stream-badge`, `stream-dot`, `stream-word`, `stream-frames`, `stream-source`
+- `stream-badge`, `stream-dot`, `stream-word`
+  - `stream-word` shows the **counted** frame rate (`1.0 HZ`, `30.1 HZ`), not the word
+    "Live", because the panel's numbers change once a second and a working rate change
+    otherwise looks like no change. It reads `IDLE` when stopped, `—` before the first
+    one-second window closes.
+- `stream-rate` (group), `stream-rate-1`, `stream-rate-5`, `stream-rate-10`,
+  `stream-rate-20`, `stream-rate-30` (each carries `data-hz` and `aria-pressed`)
 - `btn-log-toggle`, `log-badge`
 
 Session disclosure (closed by default; `details#session-details`):
@@ -293,6 +318,10 @@ Session disclosure (closed by default; `details#session-details`):
 - `btn-daemon-retry`
 - `btn-daemon-stop` (the explicit stop; warns that it releases the panel and stops telemetry)
 - `btn-stream-start`, `btn-stream-stop`
+- `stream-source`, `stream-frames`, `stream-failed`
+- `stream-achieved-row` (hidden unless achieved differs from requested by more than 5%),
+  `stream-achieved`
+- `stream-sample`, `stream-transfer`, `stream-max` (milliseconds, one decimal)
 - `stream-missing`, `stream-error-note`, `stream-error`
 - `conn-error` (inline error)
 - `document.documentElement.dataset.daemon` carries the health code
@@ -300,6 +329,9 @@ Session disclosure (closed by default; `details#session-details`):
 Mode and preview:
 
 - `mode-monitor-btn`, `mode-media-btn`, `mode-recording-btn` (`aria-pressed`), `mode-seg`
+  — each click sends `set_mode` (`1`/`2`/`3`) and switches the visible sections; the active
+  button changes only after the daemon accepts the write, and a failure appears in
+  `app-error`.
 - `device-body[data-mode]` and `preview-screen[data-view]` carry the current mode
 - `preview-screen`, `preview-style`
 - `preview-label`, `preview-value`, `preview-unit`
@@ -334,17 +366,19 @@ RGB light:
 
 Fan I/O:
 
-- `io-cpu`, `io-pump` (unwired, interactive)
+- `io-cpu`, `io-pump` (wired: `set_fan_io`, host routing), `fanio-error`
 
 Areas:
 
-- `area-main`, `area-style`, `area-aux`, `btn-areas-send`, `areas-error`
+- `area-main`, `area-style`, `area-aux`, `areas-error`
 - `area-style-row` is the Style Type container, conditionally rendered
+- No Send button: any select change writes `0x04` and pushes one redraw frame
 
 Media timing:
 
 - `media-time-0..2` and `media-animation-0..2` (radio inputs)
-- `btn-media-send`, `media-error`
+- `media-error`
+- No Send button: any radio change writes `0x07`
 
 Recording:
 
@@ -353,13 +387,17 @@ Recording:
 Labels:
 
 - `label-cpu`, `label-gpu`, `cpu-counter`, `gpu-counter`, `cpu-count`, `gpu-count`
-- `cpu-label-error`, `gpu-label-error`, `btn-labels-save`, `labels-error`
+- `cpu-label-error`, `gpu-label-error`, `labels-error`
+- No Save button: typing commits 500 ms after the last keystroke; blur and Enter commit
+  immediately. A label change writes `0x15` and `0x16`.
 
 Image:
 
-- `btn-pick-image`, `image-path`, `media-kind`, `btn-plan-upload`, `upload-fit`
+- `btn-pick-image`, `image-path`, `media-kind`, `upload-fit`
+- The plan builds as soon as a file is chosen and rebuilds when fit changes; there is no
+  Preview button. Upload stays explicit and confirmed.
 - `upload-plan` (container, toggled with `hidden`)
-- `upload-plan-kind`, `upload-plan-fit`, `upload-plan-size`, `upload-plan-frames`,
+- `upload-plan-kind`, `upload-plan-size`, `upload-plan-frames`,
   `upload-plan-bytes`, `upload-plan-chunks`, `upload-plan-commands`,
   `upload-plan-content-id`
 - `upload-preview-box`, `upload-preview`, `upload-preview-note`
@@ -384,8 +422,8 @@ Log:
   `btn-log-follow`, `log-follow-word`
 
 Unwired controls stay **visible and interactive**; each carries one short inline phrase
-naming the subsystem that owns it (`rgb-warning`, `io-cpu`, `io-pump`, `media-edge`).
-There is no `NO CMD` badge anywhere.
+naming the subsystem that owns it (`rgb-warning`, `media-edge`). There is no `NO CMD`
+badge anywhere.
 
 Global:
 
@@ -416,25 +454,27 @@ rust/apps/mystique-ui/
     commands/
       mod.rs                 shared call / call_data helpers
       connection.rs          status, open/close, sc.exe admin, daemon info/retry
-      settings.rs            brightness, rotation, gyro, screen, areas, media, labels
+      settings.rs            idle, brightness, rotation, gyro, RGB, recording,
+                             screen, areas, media, labels
       erase.rs               erase_images, the shared 0x14 request
+      raw.rs                 raw_packet, the daemon-built 48-byte request
       telemetry.rs           start/stop stream, telemetry_status projection
       upload.rs              preview and send
   ui/
-    index.html               device page: header, session strip, gauges, groups, log drawer
+    index.html               device page: header, session disclosure, groups, raw panel
     fonts/
       inter-normal.woff2     Inter, SIL Open Font License 1.1
     styles/
       fonts.css              the one local @font-face
-      base.css               tokens, reset, shared type, lamps, tags, errors
-      layout.css             status bar, header, session, gauges, columns, groups
-      controls.css           keys, switches, slider, rotation, radios, fields, plan
+      base.css               tokens, reset, shared type, lamps, errors
+      layout.css             status bar, header, session, columns, groups
+      controls.css           keys, switches, slider, rotation, radios, fields, plan, raw
       preview.css            the 640x480 panel, media view, recording graphs
       log.css                the packet log drawer and expanded bytes
     js/
-      app.js                 boot and the mode selector
+      app.js                 boot, mode selector wire, initial binding
       bridge.js              the only module that imports __TAURI__
-      daemon.js              status bar, session strip and event routing
+      daemon.js              status bar, session disclosure and event routing
       dom.js                 id-based DOM helpers
       errors.js              raw inline errors
       preview.js             staged settings + last frame -> panel preview
@@ -443,7 +483,7 @@ rust/apps/mystique-ui/
       state.js               DTO-to-control mapping and shared state
       sections.js            idle, brightness, rotation, gyro, RGB, recording, areas,
                              media, labels, erase
-      telemetry.js           stream controls, frame counter, source
+      telemetry.js           stream controls, rate presets, counters
       image.js               choose, plan, preview, confirm, upload
 ```
 
@@ -480,26 +520,37 @@ real named pipe (created by the test) so the pipe name and presence probe cannot
 ## Known limits
 
 - The Rust client is covered end to end against a fake transport. In this pass the page
-  was rendered at 1440×900 against a stubbed bridge at every command boundary: brightness,
-  rotation and the status bar are visible without scrolling, every mode switches, a plan
-  fills the upload panel, and the log drawer sits beside the content rather than over it.
-  The four real `daemon-*` events still need a run against a live daemon with a panel.
-- The vendor controls this daemon cannot command are present but disabled and tagged
-  `NO CMD`: Idle Screen Display Settings, both RGB toggles, both I/O selectors, Image/GIF
-  Edge Picking, and the two Recording display-content checkboxes. They are the map of what
-  is still missing, not fake controls.
+  was rendered at 1440×900 against a stubbed bridge at every command boundary: idle,
+  brightness, rotation, RGB, recording, display areas, the raw panel, every mode switch,
+  a plan fills the upload panel, and the log drawer sits beside the content rather than
+  over it. The four real `daemon-*` events still need a run against a live daemon with a
+  panel.
+- Every vendor control is present. The wired set is idle screen, brightness, rotation,
+  gyro, RGB sync, labels, display areas, media timing, recording options, upload and erase.
+  The unwired set is the RGB temperature warning and Image/GIF edge picking; each stays
+  interactive with one inline phrase naming the LED subsystem. No `NO CMD` badge is used.
+  Fan I/O is **wired**: `set_fan_io` routes either sensor to either RPM dial on the host.
 - The panel preview is a belief: it is built from the staged display-area selects, the
-  last `SettingsState` and the last `FrameValues`. Pump and fan RPM, and the three voltage
-  rails, are `—` because the `0x01` frame does not carry them. Nothing in the preview is
-  presented as a device read.
+  last `SettingsState` and the last `FrameValues`. Pump and fan RPM come from
+  `FrameValues.pump_rpm` and `cpu_fan_rpm`, which the `0x01` frame carries at bytes 21..22
+  and 24..25; the three voltage rails are `—` because no byte for them is known. Nothing in
+  the preview is presented as a device read. The preview footer shows CPU/GPU temperature
+  only when the panel itself is not drawing that value, so no live number appears twice.
 - Closing the window **does not stop the daemon**. A daemon spawned by the UI is left
   running with the panel held and the stream up; the next window connects to it. Use
   **Stop daemon** to release the panel and stop telemetry deliberately.
 - The request timeout is 10 seconds. A live `status` read on a wedged panel is the case it
   exists for; the client drops the link and reconnects rather than waiting forever.
+- The rate control changes the daemon's host period, not the panel. The UI marks the
+  nearest preset within 5% of the requested period and shows the achieved rate in the
+  session sheet only when it differs by more than 5%; 30 Hz is the measured Windows
+  ceiling, not a USB or panel limit.
 - Upload chunks are not shown individually; the summary plus the command, header and
-  terminator packets are. Telemetry frames are counted in the gauge strip and are not
+  terminator packets are. Telemetry frames are counted in the status bar and are not
   written to the packet log, which would otherwise gain a row every second.
+- The raw panel builds and sends any command byte. Unknown commands can change device
+  state; `0xA1` starts a panel test pattern sustained by traffic. The panel loads no
+  example bytes, and a dry run never touches USB.
 - The display-area main label-to-selector order is inferred from the vendor list. Observed
   values were main `0/1/3/5`; unobserved options are still offered because the findings do
   not define a closed list.

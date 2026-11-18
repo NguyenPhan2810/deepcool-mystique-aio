@@ -380,7 +380,7 @@ mod tests {
         .unwrap();
         // Script is now exhausted; an extra command must fail loudly.
         assert!(link
-            .send(mystique_protocol::commands::Command::InitStep03, &[0x01])
+            .send(mystique_protocol::commands::Command::SelectMode, &[0x01])
             .is_err());
     }
 
