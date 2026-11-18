@@ -151,6 +151,8 @@ mod tests {
         let packet = mystique_protocol::set_brightness(50).unwrap();
         let record = packet_record(&packet).unwrap();
         assert_eq!(record.label, "0x02 display-config");
+        // Byte 3 is `00` because RGB sync is on in the default config, and the panel
+        // follows the motherboard at `00`.
         assert_eq!(record.payload_hex, "01 00 00 00 32");
         assert_eq!(record.code, Some(0x02));
         assert_eq!(record.pipe, "init");

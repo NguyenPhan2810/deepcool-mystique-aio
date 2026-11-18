@@ -223,7 +223,7 @@ a reconnected (or reopened) window catches up.
 | Brightness (`0x02` byte 4) | **Proven on this panel.** 20 → 92 visibly dims and brightens. |
 | Screen off/on | **Proven**: brightness 0 blanks the panel. `0x02` byte 0 is the idle screen display, not screen power (`re/findings/17-mode-and-idle-screen.md`). |
 | Idle screen (`0x02` byte 0) | **Verified from the USB capture**, 2026-11-18: toggled exactly when the vendor control changed, and back (`re/findings/17-mode-and-idle-screen.md`). It does not blank the panel. |
-| RGB sync (`0x02` byte 3) | **Verified from the USB capture**, 2026-11-18: toggled six times with the vendor's **Sync with Motherboard RGB Light Effect** checkbox (`re/findings/18-rgb-and-recording.md`). It is an LCD flag, not an LED command. |
+| RGB sync (`0x02` byte 3) | **Verified from the USB capture**, 2026-11-18: toggled six times with the vendor's **Sync with Motherboard RGB Light Effect** checkbox (`re/findings/18-rgb-and-recording.md`). The **direction** was corrected on the panel 2026-11-19: `00` = follow the motherboard, `01` = panel's own effect. |
 | Gyro gating (`0x02` byte 1) | **Proven on this panel.** Rotation is ignored while the gyro is on, so rotation always clears it in the same payload. |
 | Display mode (`0x03`) | **Verified from the USB capture**, 2026-11-18: `01` Monitor, `02` Media, `03` Recording, with four labelled transitions (`re/findings/17-mode-and-idle-screen.md`). The mode selector sends it; a mode write does **not** erase stored content. |
 | Erase / return to dashboard (`0x14`) | **Proven on this panel**, 2026-11-18: it deleted the stored content and the panel showed machine info. It is destructive and has no read-back. |

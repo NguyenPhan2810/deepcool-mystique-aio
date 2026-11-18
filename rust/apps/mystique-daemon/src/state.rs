@@ -341,7 +341,12 @@ mod tests {
         assert_eq!(settings.rotation, 0);
         assert_eq!(settings.brightness, 70);
         assert!(settings.idle_screen);
-        assert!(!settings.rgb_sync);
+        assert!(
+            settings.rgb_sync,
+            "the captured init is 00 here: the panel follows the motherboard"
+        );
+        assert_eq!(settings.fan_io_cpu, "cpu");
+        assert_eq!(settings.fan_io_pump, "pump");
         assert!(settings.record_cpu_clock);
         assert!(settings.record_cpu_temp);
         assert_eq!(settings.screen_restore_brightness, 70);

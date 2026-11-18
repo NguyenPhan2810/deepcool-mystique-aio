@@ -67,8 +67,9 @@ impl DisplayConfig {
     /// Gyroscopes off, so rotation commands take effect. This is a driver choice, not
     /// a capture fact: the vendor's keepalive block carries `01` here.
     pub const DEFAULT_GYRO: bool = false;
-    /// RGB sync off, the vendor default. `01` defers the ring colour to the motherboard.
-    pub const DEFAULT_RGB_SYNC: bool = false;
+    /// RGB sync on, which is `00` on the wire. The captured vendor init block carries
+    /// `00` here, and the panel follows the motherboard at `00` (2026-11-19).
+    pub const DEFAULT_RGB_SYNC: bool = true;
     /// `0x46` (70), the value in the first captured block.
     pub const DEFAULT_BRIGHTNESS: u8 = 70;
 
@@ -107,7 +108,14 @@ impl DisplayConfig {
         self.rotation
     }
 
-    /// `0x02` index 3. `01` defers the ring colour to the motherboard, `00` does not.
+    /// `0x02` index 3. **`00` defers the ring colour to the motherboard, `01` does not.**
+    ///
+    /// Observed on the panel on 2026-11-19: with `01` written, the checkbox labelled
+    /// "Sync with motherboard" had no effect, and the ring only followed the board at
+    /// `00`. The capture in `re/findings/18-rgb-and-recording.md` correlated the byte
+    /// with the checkbox but did not pin which click produced which value, so its
+    /// "01 = sync on" label was an assumption. The panel settles it: the byte is
+    /// inverted relative to the control's name.
     pub const fn rgb_sync(&self) -> bool {
         self.rgb
     }
@@ -147,7 +155,9 @@ impl DisplayConfig {
             u8::from(self.idle),
             u8::from(self.gyro),
             self.rotation.raw(),
-            u8::from(self.rgb),
+            // Inverted on purpose: the panel follows the motherboard at `00` and keeps
+            // its own effect at `01`. See `rgb_sync` for the evidence.
+            if self.rgb { 0x00 } else { 0x01 },
             self.brightness,
         ]
     }
@@ -245,7 +255,7 @@ mod tests {
         assert!(config.idle_screen());
         assert!(!config.gyro_allowed());
         assert_eq!(config.rotation(), Rotation::ZERO);
-        assert!(!config.rgb_sync());
+        assert!(config.rgb_sync());
         assert_eq!(config.brightness(), 70);
         assert_eq!(config.payload(), [0x01, 0x00, 0x00, 0x00, 0x46]);
         // The captured helper keeps the vendor's gyro bit so the 360 init block stays
@@ -259,10 +269,10 @@ mod tests {
     #[test]
     fn every_field_lands_at_its_documented_index() {
         let config = DisplayConfig::new(false, true, rotation(3), true, 100).unwrap();
-        assert_eq!(config.payload(), [0x00, 0x01, 0x03, 0x01, 0x64]);
+        assert_eq!(config.payload(), [0x00, 0x01, 0x03, 0x00, 0x64]);
 
         let config = DisplayConfig::new(true, false, rotation(2), false, 0).unwrap();
-        assert_eq!(config.payload(), [0x01, 0x00, 0x02, 0x00, 0x00]);
+        assert_eq!(config.payload(), [0x01, 0x00, 0x02, 0x01, 0x00]);
     }
 
     #[test]
@@ -311,7 +321,7 @@ mod tests {
         );
         assert_eq!(
             set_rgb_sync(true).payload,
-            vec![0x01, 0x00, 0x00, 0x01, 0x46]
+            vec![0x01, 0x00, 0x00, 0x00, 0x46]
         );
         assert_eq!(set_gyro(true).payload, vec![0x01, 0x01, 0x00, 0x00, 0x46]);
         assert_eq!(
@@ -334,11 +344,11 @@ mod tests {
         // re/findings/17-mode-and-idle-screen.md: 01 01 00 01 46 -> 00 01 00 01 46
         // when Idle Screen Display was turned off, and back.
         let idle_off = DisplayConfig::new(false, true, Rotation::ZERO, true, 70).unwrap();
-        assert_eq!(idle_off.payload(), [0x00, 0x01, 0x00, 0x01, 0x46]);
+        assert_eq!(idle_off.payload(), [0x00, 0x01, 0x00, 0x00, 0x46]);
         // re/findings/18-rgb-and-recording.md: 01 01 00 01 46 <-> 01 01 00 00 46
         // six times while the RGB sync checkbox was clicked.
         let rgb_off = DisplayConfig::new(true, true, Rotation::ZERO, false, 70).unwrap();
-        assert_eq!(rgb_off.payload(), [0x01, 0x01, 0x00, 0x00, 0x46]);
+        assert_eq!(rgb_off.payload(), [0x01, 0x01, 0x00, 0x01, 0x46]);
     }
 
     #[test]

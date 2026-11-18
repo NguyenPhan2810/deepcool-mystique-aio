@@ -158,8 +158,11 @@ Semantics worth knowing:
   one is set). `0x02` byte 0 is the idle screen display, not a screen switch.
 - `set_idle_screen` writes `0x02` byte 0 (`01` enabled, `00` disabled). It does not blank
   the panel and is never presented as screen power.
-- `set_rgb_sync` writes `0x02` byte 3 (`01` synced, `00` not); the LCD firmware then defers
-  the ring colour to the motherboard. The RGB temperature warning has no LCD command.
+- `set_rgb_sync` writes `0x02` byte 3: **`00` follows the motherboard, `01` keeps the
+  panel's own effect** (observed on the panel 2026-11-19; the capture in findings 18
+  correlated the byte but had the direction inverted). The default is synced, which is
+  why the captured init block carries `00` there. The RGB temperature warning has no LCD
+  command.
 - `set_recording` writes `0x05` as `[cpu_clock, cpu_temp]`, then pushes one immediate `0x01`
   frame because the graphs only draw with data. The frame does not change stream counters.
 - `set_mode` writes `0x03` as `[1|2|3]`. Stored images still hold the panel until `0x14`

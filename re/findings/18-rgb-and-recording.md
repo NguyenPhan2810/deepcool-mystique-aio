@@ -18,6 +18,25 @@ Confidence: high on correlation, and it is the only control that was being touch
 window. It is a flag the LCD firmware uses to defer the ring colour to the motherboard, not an
 LCD drawing parameter.
 
+### Direction, corrected 2026-11-19
+
+The labels above were an assumption: the capture correlated the byte with the checkbox but did
+not pin which click produced which value. On the panel the effect is the opposite of what those
+labels say:
+
+```
+00  follow the motherboard   (sync ON)
+01  panel's own effect       (sync OFF)
+```
+
+Verified by toggling on hardware: at `01` the ring ignored the motherboard, at `00` it followed
+it. The vendor init block carries `00`, so the vendor app starts synced — which also explains
+why the driver's old default (`00`, written while its setting claimed "off") looked like an
+inverted checkbox.
+
+The protocol encoder now writes `00` for "synced", and its default is synced so the captured
+init block stays byte-exact.
+
 Note: the RGB **temperature warning** toggle produced no LCD command at all, so that one is
 handled elsewhere and is out of scope for a display driver.
 

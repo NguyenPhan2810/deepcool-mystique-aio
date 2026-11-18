@@ -241,7 +241,7 @@ mod tests {
             0,
             DisplayAreas::default(),
         );
-        assert_eq!(steps[1].payload, vec![0x00, 0x00, 0x03, 0x01, 0x24]);
+        assert_eq!(steps[1].payload, vec![0x00, 0x00, 0x03, 0x00, 0x24]);
         assert_eq!(steps[6].payload, vec![0x01, 0x00]);
         // Every other step stays in the captured order and shape.
         assert_eq!(steps.len(), 13);

@@ -359,7 +359,7 @@ fn idle_and_rgb_are_written_at_their_bits_and_survive_other_0x02_writes() {
     assert!(outcome.settings.rgb_sync);
     assert_eq!(
         state.last_payload(0x02).as_deref(),
-        Some([0x00, 0x00, 0x00, 0x01, 0x46].as_slice())
+        Some([0x00, 0x00, 0x00, 0x00, 0x46].as_slice())
     );
 
     // A brightness write is still a complete 0x02 payload: idle and RGB survive it.
@@ -374,7 +374,7 @@ fn idle_and_rgb_are_written_at_their_bits_and_survive_other_0x02_writes() {
     assert!(response.ok);
     assert_eq!(
         state.last_payload(0x02).as_deref(),
-        Some([0x00, 0x00, 0x00, 0x01, 0x2C].as_slice())
+        Some([0x00, 0x00, 0x00, 0x00, 0x2C].as_slice())
     );
     let settings = core.settings();
     assert!(!settings.idle_screen);
