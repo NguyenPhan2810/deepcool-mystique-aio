@@ -28,6 +28,9 @@ rust/target*/
 # needed; the findings and reports that cite them stay tracked.
 re/captures/*.pcap
 
+# Browser-automation scratch
+.playwright-mcp/
+
 # Python
 __pycache__/
 *.py[cod]
