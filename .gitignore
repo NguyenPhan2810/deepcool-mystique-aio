@@ -14,3 +14,23 @@ deepcool-worker.js
 
 # Publish staging directory
 artifacts/
+
+# Reverse-engineering scratch: extracted vendor bundles, REA evidence dumps,
+# decompiler projects. Findings and fixtures are ours and stay tracked; the
+# extracted vendor code itself must never enter history.
+re/work/
+
+# Rust build output: target/, target-verify/, target-gates/ and friends.
+rust/target*/
+
+# USB captures are hundreds of megabytes each and carry the raw device
+# identifier in plaintext. Regenerate them with re/tools when evidence is
+# needed; the findings and reports that cite them stay tracked.
+re/captures/*.pcap
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+.ruff_cache/
