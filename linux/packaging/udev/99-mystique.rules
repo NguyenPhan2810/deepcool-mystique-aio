@@ -1,0 +1,23 @@
+# DeepCool MYSTIQUE AIO LCD (VID:PID 3633:0009)
+#
+# Vendor-specific USB device: no kernel driver is bound, libusb/pyusb claims
+# interface 0 directly. The protocol uses endpoints 0x01/0x81 (init, info) and
+# 0x02/0x82 (status, telemetry). See re/CONTEXT.md.
+#
+# Install:
+#   sudo install -m 0644 99-mystique.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload-rules
+#   sudo udevadm trigger --subsystem-match=usb
+# then replug the AIO: udev applies rules when the device enumerates.
+#
+# Grant a group (recommended for a service account that is never logged in):
+#   sudo groupadd -f plugdev
+#   sudo usermod -aG plugdev "$USER"     # log out and back in
+#
+# Alternative for a single-user desktop, no group needed: replace the MODE and
+# GROUP lines with
+#   TAG+="uaccess"
+# which lets systemd-logind grant an ACL to the user holding the active seat.
+# The two are mutually exclusive in practice; use one.
+
+SUBSYSTEM=="usb", ATTR{idVendor}=="3633", ATTR{idProduct}=="0009", MODE="0660", GROUP="plugdev"

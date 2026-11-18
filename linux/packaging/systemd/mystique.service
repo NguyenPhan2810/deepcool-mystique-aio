@@ -1,0 +1,30 @@
+[Unit]
+Description=DeepCool MYSTIQUE AIO LCD telemetry
+After=systemd-udevd.service local-fs.target
+
+[Service]
+Type=simple
+# Adjust to the install location reported by `command -v mystique`.
+# For an editable install in /opt/mystique/.venv use:
+#   ExecStart=/opt/mystique/.venv/bin/mystique live 0
+ExecStart=/usr/bin/mystique live 0
+Restart=on-failure
+RestartSec=5s
+# A transfer is bounded by the driver's 1500 ms timeout, and the loop wakes on
+# SIGTERM between frames, so shutdown is prompt. Never send a mode reset here:
+# the Windows design records why a mid-sequence force-kill is worse than a
+# frozen last frame.
+TimeoutStopSec=10s
+KillSignal=SIGTERM
+SyslogIdentifier=mystique
+Environment=PYTHONUNBUFFERED=1
+# Non-zero mounting rotation: add --rotation=1 (90), 2 (180), or 3 (270)
+# before `live`, e.g. ExecStart=/usr/bin/mystique --rotation=1 live 0
+
+# The unit runs as root by default, which needs no udev rule. To drop
+# privileges instead, create a system user, add it to plugdev, and uncomment:
+#User=mystique
+#SupplementaryGroups=plugdev
+
+[Install]
+WantedBy=multi-user.target

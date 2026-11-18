@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "deepcool-mystique"
+version = "0.1.0"
+description = "Userspace Linux driver for the DeepCool MYSTIQUE AIO LCD (USB 3633:0009): telemetry and image/GIF upload"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+# pyusb talks to the device through libusb; no kernel driver is involved.
+dependencies = ["pyusb>=1.2.1"]
+
+[project.optional-dependencies]
+# Image/GIF upload only. The telemetry path needs pyusb and nothing else.
+image = ["Pillow>=10"]
+test = ["pytest>=7"]
+
+[project.scripts]
+mystique = "mystique.cli:main"
+
+[tool.setuptools]
+packages = ["mystique"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
