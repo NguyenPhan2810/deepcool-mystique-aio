@@ -1,0 +1,14 @@
+# Control for the unexpected 0x0A result: the data pipe echoed 0x0A when it
+# carried an 8-byte payload, but stayed neutral with an empty payload.
+#
+# Question: is that specific to 0x0A, or does the data pipe echo any command
+# that arrives with a payload?
+#
+# 0x02 is the discriminator: same documented payload, but on the data pipe.
+#   0x02 echoes -> payloaded packets are dispatched on the data pipe generally
+#   0x02 neutral -> 0x0A is specifically recognised on the data pipe
+0x02 0100000124 data
+# repeat of the observation, same process, to prove it reproduces
+0x0A ea07020202272100 data
+# end on a status read, which leaves the pipe quiet
+0x10 - data

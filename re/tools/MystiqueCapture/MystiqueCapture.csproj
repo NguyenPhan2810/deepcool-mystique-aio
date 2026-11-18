@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Standalone capture harness for the live MYSTIQUE device.
+    Deliberately outside Mystique.slnx and outside every Mystique.* project:
+    it references them, it does not extend or modify them.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>MystiqueCapture</AssemblyName>
+    <RootNamespace>MystiqueCapture</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Mystique.Core.Contracts\Mystique.Core.Contracts.csproj" />
+    <ProjectReference Include="..\..\..\Mystique.Core.Device\Mystique.Core.Device.csproj" />
+  </ItemGroup>
+</Project>

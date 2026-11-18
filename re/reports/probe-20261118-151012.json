@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "tool": "mystique 0.1.0 explore",
+  "generated_at": "2026-11-18T15:10:12Z",
+  "phase": "probe",
+  "mode": "send",
+  "scope": {
+    "first": 23,
+    "last": 23,
+    "count": 1
+  },
+  "allowlist": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    10,
+    11,
+    16,
+    18,
+    21,
+    22,
+    23
+  ],
+  "skipped": [],
+  "probe_timeout_ms": 750,
+  "device": {
+    "vendor_id": 13875,
+    "product_id": 9,
+    "bus": 1,
+    "address": 11,
+    "release": 582,
+    "product": null,
+    "identifiers_redacted": true
+  },
+  "redaction": {
+    "policy": "bytes 4..36 masked when they match the 32-uppercase-hex identifier shape; serial and device id never written"
+  },
+  "wedge": null,
+  "summary": {
+    "probed": 1,
+    "replied": 1,
+    "success": 1,
+    "timeouts": 0,
+    "errors": 0,
+    "state_changes": 0,
+    "discovered": 0
+  },
+  "entries": [
+    {
+      "index": 0,
+      "cmd": 23,
+      "pipe": "init",
+      "payload_hex": "41 42 43 44 45 46",
+      "label": null,
+      "replied": true,
+      "echo": 0,
+      "result_code": 0,
+      "reply_len": 48,
+      "reply_hex_redacted": "55 2E 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 9B 01",
+      "elapsed_ms": 0,
+      "outcome": "reply",
+      "error": null,
+      "status_before": null,
+      "status_after": null
+    }
+  ]
+}

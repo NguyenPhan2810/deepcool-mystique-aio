@@ -1,0 +1,35 @@
+{
+  "fixture": "telemetry-baseline-0x01",
+  "proves": "A well-formed 39-byte 0x01 telemetry frame is acknowledged with a 48-byte reply, command echo 0x01, result 0x00, empty body and a valid checksum.",
+  "capturedFrom": "re/tools/captures/04-telemetry-baseline.json",
+  "capturedAtUtc": "2026-11-17T15:48:42.3304525+00:00",
+  "transport": {
+    "out": "0x02",
+    "in": "0x82",
+    "packetLength": 48
+  },
+  "request": {
+    "hex": "AA 2E 01 24 00 00 09 00 00 27 00 09 03 00 30 05 00 06 0C 00 07 04 00 1E B8 0B 00 B8 0B 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 47 04",
+    "length": 48,
+    "command": "0x01",
+    "checksumHex": "0x0447",
+    "checksumAlgorithm": "LE16 sum of bytes 0..45 inclusive (HIDC included)"
+  },
+  "response": {
+    "received": true,
+    "length": 48,
+    "hex": "55 2E 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 9C 01",
+    "commandEcho": "0x01",
+    "resultCode": "0x00",
+    "checksumHex": "0x019C",
+    "checksumValid": true
+  },
+  "decodedPayload": {
+    "cpuTemperatureC": 36,
+    "cpuUsagePercent": 9,
+    "memoryLoadPercent": 39,
+    "gpuTemperatureC": 48,
+    "cpuClockMhz": 4300,
+    "note": "Payload built by MystiquePackets.BuildDisplayPayload; this fixture is the exact frame the Windows service emits for those values."
+  }
+}

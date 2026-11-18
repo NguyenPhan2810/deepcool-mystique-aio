@@ -1,0 +1,18 @@
+{
+  "name": "01-checksum",
+  "note": "Does the device validate the 16-bit sum or the HIDC marker on a 0x01 frame, and is a rejected frame ACKed? Exactly one field changes per step; the known-good baseline is re-sent after every probe so the panel is never left on a candidate frame.",
+  "basePayload": "24 00 00 09 00 00 27 00 09 03 00 30 05 00 06 0C 00 07 04 00 1E B8 0B 00 B8 0B 00 00 00 00 00 00 00 00 00 00 00 00 00",
+  "steps": [
+    { "name": "baseline frame (valid checksum)", "cmd": "0x01", "settleMs": 400 },
+    { "name": "checksum +1 (invalid)", "cmd": "0x01", "checksumAdjust": 1, "settleMs": 400 },
+    { "name": "baseline frame (restore)", "cmd": "0x01", "settleMs": 400 },
+    { "name": "checksum -1 (invalid)", "cmd": "0x01", "checksumAdjust": -1, "settleMs": 400 },
+    { "name": "baseline frame (restore)", "cmd": "0x01", "settleMs": 400 },
+    { "name": "checksum over 0..41 (HIDC excluded)", "cmd": "0x01", "checksumBytes": 42, "settleMs": 400 },
+    { "name": "baseline frame (restore)", "cmd": "0x01", "settleMs": 400 },
+    { "name": "HIDC zeroed, checksum valid for that packet", "cmd": "0x01", "hidc": false, "settleMs": 400 },
+    { "name": "baseline frame (restore)", "cmd": "0x01", "settleMs": 400 },
+    { "name": "status 0x10, checksum +1 (invalid)", "cmd": "0x10", "payload": "-", "checksumAdjust": 1, "settleMs": 400 },
+    { "name": "status 0x10, valid checksum", "cmd": "0x10", "payload": "-", "settleMs": 400 }
+  ]
+}

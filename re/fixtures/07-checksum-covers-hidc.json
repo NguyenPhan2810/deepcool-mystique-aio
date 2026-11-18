@@ -1,0 +1,32 @@
+{
+  "fixture": "checksum-covers-hidc",
+  "proves": "The device's checksum covers bytes 0..45 including the HIDC trailer. A packet whose checksum was computed over bytes 0..41 only is rejected with result 0x02, even though the HIDC bytes themselves are intact.",
+  "capturedFrom": "re/tools/captures/05-checksum.json",
+  "capturedAtUtc": "2026-11-17T15:53:39.0382474+00:00",
+  "transport": {
+    "out": "0x02",
+    "in": "0x82",
+    "packetLength": 48
+  },
+  "request": {
+    "hex": "AA 2E 01 24 00 00 09 00 00 27 00 09 03 00 30 05 00 06 0C 00 07 04 00 1E B8 0B 00 B8 0B 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 2F 03",
+    "length": 48,
+    "command": "0x01",
+    "checksumHex": "0x032F",
+    "checksumAlgorithm": "LE16 sum of bytes 0..45 inclusive (HIDC included)",
+    "checksumValidInPacket": false,
+    "correctChecksumHex": "0x0447"
+  },
+  "response": {
+    "received": true,
+    "length": 48,
+    "hex": "55 2E 01 02 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 9E 01",
+    "commandEcho": "0x01",
+    "resultCode": "0x02",
+    "checksumHex": "0x019E",
+    "checksumValid": true
+  },
+  "notes": [
+    "This is the only difference from the accepted baseline; payload bytes are identical, so 0x02 is attributable solely to the checksum coverage."
+  ]
+}

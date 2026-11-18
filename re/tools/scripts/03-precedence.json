@@ -1,0 +1,14 @@
+{
+  "name": "03-precedence",
+  "note": "Validation precedence when two framing fields are broken at once, plus recovery after a silently dropped packet (bad sync). Baseline is restored after every probe.",
+  "basePayload": "24 00 00 09 00 00 27 00 09 03 00 30 05 00 06 0C 00 07 04 00 1E B8 0B 00 B8 0B 00 00 00 00 00 00 00 00 00 00 00 00 00",
+  "steps": [
+    { "name": "status after bad-sync timeout", "cmd": "0x10", "payload": "-", "settleMs": 300 },
+    { "name": "HIDC zeroed AND checksum +1", "cmd": "0x01", "hidc": false, "checksumAdjust": 1, "settleMs": 300 },
+    { "name": "HIDC zeroed AND checksum -1", "cmd": "0x01", "hidc": false, "checksumAdjust": -1, "settleMs": 300 },
+    { "name": "baseline restore", "cmd": "0x01", "settleMs": 300 },
+    { "name": "all-zero payload, valid framing", "cmd": "0x01", "payload": "00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00", "settleMs": 400 },
+    { "name": "baseline restore", "cmd": "0x01", "settleMs": 400 },
+    { "name": "status final", "cmd": "0x10", "payload": "-", "settleMs": 300 }
+  ]
+}

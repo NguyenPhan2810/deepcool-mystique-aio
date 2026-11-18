@@ -1,0 +1,46 @@
+{
+  "tool": "MystiqueCapture/1",
+  "mode": "bad-sync",
+  "capturedAtUtc": "2026-11-17T16:01:10.6237163\u002B00:00",
+  "devicePathRedacted": "\\\\?\\USB#VID_3633\u0026PID_0009#\u003Cserial\u003E#{a5dcbf10-6530-11d2-901f-00c04fb951ed}",
+  "pipes": [
+    "0x81 Bulk mps=64",
+    "0x01 Bulk mps=64",
+    "0x82 Bulk mps=64",
+    "0x02 Bulk mps=64"
+  ],
+  "exchanges": [
+    {
+      "index": 1,
+      "name": "telemetry with sync 0xAB",
+      "startedAtUtc": "2026-11-17T16:01:08.7022356\u002B00:00",
+      "elapsedMs": 1505,
+      "request": {
+        "pipeOut": "0x02",
+        "pipeIn": "0x82",
+        "command": "0x01",
+        "payloadHex": "24 00 00 09 00 00 27 00 09 03 00 30 05 00 06 0C 00 07 04 00 1E B8 0B 00 B8 0B 00 00 00 00 00 00 00 00 00 00 00 00 00",
+        "packetHex": "AB 2E 01 24 00 00 09 00 00 27 00 09 03 00 30 05 00 06 0C 00 07 04 00 1E B8 0B 00 B8 0B 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 48 04",
+        "checksumBytes": 46,
+        "checksumAdjust": 0,
+        "hidc": true,
+        "checksumHex": "0x0448"
+      },
+      "response": {
+        "received": false,
+        "length": 0,
+        "prefixHex": "",
+        "bodyNonZeroCount": 0,
+        "bodyRedactedReason": "no response",
+        "tailHex": "",
+        "trailingNonZeroCount": 0,
+        "checksumField": "absent",
+        "timedOut": true,
+        "win32Error": 121,
+        "error": "read failed: The semaphore timeout period has expired."
+      },
+      "settleMs": 0
+    }
+  ],
+  "responseChecksumNote": "response bytes 4..41 are redacted and bytes 46..47 (device-specific checksum) are withheld; checksumValid is computed in memory."
+}

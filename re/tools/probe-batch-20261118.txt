@@ -1,0 +1,38 @@
+# Payload-gated probes, MYSTIQUE 360, 2026-11-18.
+# Format: cmd_hex payload_hex pipe   ('-' = empty payload)
+# Order is safest-first. 0x0A with the image-mode payload is last because it is
+# the only probe here expected to change persistent device state; it is followed
+# by a Machine Info restore.
+#
+# 1. control: rotation 0. Must echo, or the transport is lying.
+0x02 0100000124 init
+# 2. status baseline
+0x10 - data
+# 3. Machine Info mode, documented working payload, both pipes
+0x0A ea07020202272100 init
+0x0A ea07020202272100 data
+# 4. 0x15/0x16/0x17: silent in init with empty payload. Payload-gated?
+0x15 2d2d init
+0x15 475055 init
+0x16 2d2d init
+0x16 475055 init
+0x17 2d2d init
+0x17 475055 init
+# 5. image commands: empty payload, init pipe (recognised there) then data pipe
+#    (where the first sweep saw only the neutral ACK)
+0x11 - init
+0x11 - data
+0x0F - init
+0x0F - data
+0x14 - init
+0x14 - data
+# 6. commit, prior art payload
+0x08 0101 init
+# 7. 0xA1 echoed on the init pipe during the sweep; empty-payload confirmation only
+0xA1 - init
+# 8. image-mode switch from prior art, then restore Machine Info
+0x0A ea070809113a0900 init
+0x0A ea070809113a0900 data
+0x0A ea07020202272100 init
+# 9. status after everything
+0x10 - data

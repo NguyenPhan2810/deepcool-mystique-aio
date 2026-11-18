@@ -1,0 +1,33 @@
+{
+  "fixture": "telemetry-checksum-mismatch",
+  "proves": "The device validates the 16-bit request checksum. A frame identical to the baseline except for checksum+1 is still answered, but result byte 3 is 0x02 instead of 0x00.",
+  "capturedFrom": "re/tools/captures/05-checksum.json",
+  "capturedAtUtc": "2026-11-17T15:53:37.4106960+00:00",
+  "transport": {
+    "out": "0x02",
+    "in": "0x82",
+    "packetLength": 48
+  },
+  "request": {
+    "hex": "AA 2E 01 24 00 00 09 00 00 27 00 09 03 00 30 05 00 06 0C 00 07 04 00 1E B8 0B 00 B8 0B 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 48 04",
+    "length": 48,
+    "command": "0x01",
+    "checksumHex": "0x0448",
+    "checksumAlgorithm": "LE16 sum of bytes 0..45 inclusive (HIDC included)",
+    "checksumValidInPacket": false,
+    "correctChecksumHex": "0x0447"
+  },
+  "response": {
+    "received": true,
+    "length": 48,
+    "hex": "55 2E 01 02 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 9E 01",
+    "commandEcho": "0x01",
+    "resultCode": "0x02",
+    "checksumHex": "0x019E",
+    "checksumValid": true
+  },
+  "notes": [
+    "checksum-1 produces the identical 0x02 reply (same capture, exchange 4), so the check is an equality test, not a range or parity heuristic.",
+    "The device always answers with a valid response checksum, including error replies."
+  ]
+}

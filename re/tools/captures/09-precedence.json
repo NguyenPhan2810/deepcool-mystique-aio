@@ -1,0 +1,233 @@
+{
+  "tool": "MystiqueCapture/1",
+  "mode": "script",
+  "scriptName": "03-precedence",
+  "capturedAtUtc": "2026-11-17T16:01:50.0854786\u002B00:00",
+  "devicePathRedacted": "\\\\?\\USB#VID_3633\u0026PID_0009#\u003Cserial\u003E#{a5dcbf10-6530-11d2-901f-00c04fb951ed}",
+  "pipes": [
+    "0x81 Bulk mps=64",
+    "0x01 Bulk mps=64",
+    "0x82 Bulk mps=64",
+    "0x02 Bulk mps=64"
+  ],
+  "exchanges": [
+    {
+      "index": 1,
+      "name": "status after bad-sync timeout",
+      "startedAtUtc": "2026-11-17T16:01:37.1441590\u002B00:00",
+      "elapsedMs": 1506,
+      "request": {
+        "pipeOut": "0x02",
+        "pipeIn": "0x82",
+        "command": "0x10",
+        "payloadHex": "",
+        "packetHex": "AA 2E 10 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 00 02",
+        "checksumBytes": 46,
+        "checksumAdjust": 0,
+        "hidc": true,
+        "checksumHex": "0x0200"
+      },
+      "response": {
+        "received": false,
+        "length": 0,
+        "prefixHex": "",
+        "bodyNonZeroCount": 0,
+        "bodyRedactedReason": "no response",
+        "tailHex": "",
+        "trailingNonZeroCount": 0,
+        "checksumField": "absent",
+        "timedOut": true,
+        "win32Error": 121,
+        "error": "write failed: The semaphore timeout period has expired."
+      },
+      "settleMs": 300
+    },
+    {
+      "index": 2,
+      "name": "HIDC zeroed AND checksum \u002B1",
+      "startedAtUtc": "2026-11-17T16:01:38.9630096\u002B00:00",
+      "elapsedMs": 1514,
+      "request": {
+        "pipeOut": "0x02",
+        "pipeIn": "0x82",
+        "command": "0x01",
+        "payloadHex": "24 00 00 09 00 00 27 00 09 03 00 30 05 00 06 0C 00 07 04 00 1E B8 0B 00 B8 0B 00 00 00 00 00 00 00 00 00 00 00 00 00",
+        "packetHex": "AA 2E 01 24 00 00 09 00 00 27 00 09 03 00 30 05 00 06 0C 00 07 04 00 1E B8 0B 00 B8 0B 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 30 03",
+        "checksumBytes": 46,
+        "checksumAdjust": 1,
+        "hidc": false,
+        "checksumHex": "0x032F"
+      },
+      "response": {
+        "received": false,
+        "length": 0,
+        "prefixHex": "",
+        "bodyNonZeroCount": 0,
+        "bodyRedactedReason": "no response",
+        "tailHex": "",
+        "trailingNonZeroCount": 0,
+        "checksumField": "absent",
+        "timedOut": true,
+        "win32Error": 121,
+        "error": "write failed: The semaphore timeout period has expired."
+      },
+      "settleMs": 300
+    },
+    {
+      "index": 3,
+      "name": "HIDC zeroed AND checksum -1",
+      "startedAtUtc": "2026-11-17T16:01:40.7871643\u002B00:00",
+      "elapsedMs": 1504,
+      "request": {
+        "pipeOut": "0x02",
+        "pipeIn": "0x82",
+        "command": "0x01",
+        "payloadHex": "24 00 00 09 00 00 27 00 09 03 00 30 05 00 06 0C 00 07 04 00 1E B8 0B 00 B8 0B 00 00 00 00 00 00 00 00 00 00 00 00 00",
+        "packetHex": "AA 2E 01 24 00 00 09 00 00 27 00 09 03 00 30 05 00 06 0C 00 07 04 00 1E B8 0B 00 B8 0B 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 2E 03",
+        "checksumBytes": 46,
+        "checksumAdjust": -1,
+        "hidc": false,
+        "checksumHex": "0x032F"
+      },
+      "response": {
+        "received": false,
+        "length": 0,
+        "prefixHex": "",
+        "bodyNonZeroCount": 0,
+        "bodyRedactedReason": "no response",
+        "tailHex": "",
+        "trailingNonZeroCount": 0,
+        "checksumField": "absent",
+        "timedOut": true,
+        "win32Error": 121,
+        "error": "write failed: The semaphore timeout period has expired."
+      },
+      "settleMs": 300
+    },
+    {
+      "index": 4,
+      "name": "baseline restore",
+      "startedAtUtc": "2026-11-17T16:01:42.6037293\u002B00:00",
+      "elapsedMs": 1504,
+      "request": {
+        "pipeOut": "0x02",
+        "pipeIn": "0x82",
+        "command": "0x01",
+        "payloadHex": "24 00 00 09 00 00 27 00 09 03 00 30 05 00 06 0C 00 07 04 00 1E B8 0B 00 B8 0B 00 00 00 00 00 00 00 00 00 00 00 00 00",
+        "packetHex": "AA 2E 01 24 00 00 09 00 00 27 00 09 03 00 30 05 00 06 0C 00 07 04 00 1E B8 0B 00 B8 0B 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 47 04",
+        "checksumBytes": 46,
+        "checksumAdjust": 0,
+        "hidc": true,
+        "checksumHex": "0x0447"
+      },
+      "response": {
+        "received": false,
+        "length": 0,
+        "prefixHex": "",
+        "bodyNonZeroCount": 0,
+        "bodyRedactedReason": "no response",
+        "tailHex": "",
+        "trailingNonZeroCount": 0,
+        "checksumField": "absent",
+        "timedOut": true,
+        "win32Error": 121,
+        "error": "write failed: The semaphore timeout period has expired."
+      },
+      "settleMs": 300
+    },
+    {
+      "index": 5,
+      "name": "all-zero payload, valid framing",
+      "startedAtUtc": "2026-11-17T16:01:44.4182100\u002B00:00",
+      "elapsedMs": 1513,
+      "request": {
+        "pipeOut": "0x02",
+        "pipeIn": "0x82",
+        "command": "0x01",
+        "payloadHex": "00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00",
+        "packetHex": "AA 2E 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 F1 01",
+        "checksumBytes": 46,
+        "checksumAdjust": 0,
+        "hidc": true,
+        "checksumHex": "0x01F1"
+      },
+      "response": {
+        "received": false,
+        "length": 0,
+        "prefixHex": "",
+        "bodyNonZeroCount": 0,
+        "bodyRedactedReason": "no response",
+        "tailHex": "",
+        "trailingNonZeroCount": 0,
+        "checksumField": "absent",
+        "timedOut": true,
+        "win32Error": 121,
+        "error": "write failed: The semaphore timeout period has expired."
+      },
+      "settleMs": 400
+    },
+    {
+      "index": 6,
+      "name": "baseline restore",
+      "startedAtUtc": "2026-11-17T16:01:46.3354165\u002B00:00",
+      "elapsedMs": 1515,
+      "request": {
+        "pipeOut": "0x02",
+        "pipeIn": "0x82",
+        "command": "0x01",
+        "payloadHex": "24 00 00 09 00 00 27 00 09 03 00 30 05 00 06 0C 00 07 04 00 1E B8 0B 00 B8 0B 00 00 00 00 00 00 00 00 00 00 00 00 00",
+        "packetHex": "AA 2E 01 24 00 00 09 00 00 27 00 09 03 00 30 05 00 06 0C 00 07 04 00 1E B8 0B 00 B8 0B 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 47 04",
+        "checksumBytes": 46,
+        "checksumAdjust": 0,
+        "hidc": true,
+        "checksumHex": "0x0447"
+      },
+      "response": {
+        "received": false,
+        "length": 0,
+        "prefixHex": "",
+        "bodyNonZeroCount": 0,
+        "bodyRedactedReason": "no response",
+        "tailHex": "",
+        "trailingNonZeroCount": 0,
+        "checksumField": "absent",
+        "timedOut": true,
+        "win32Error": 121,
+        "error": "write failed: The semaphore timeout period has expired."
+      },
+      "settleMs": 400
+    },
+    {
+      "index": 7,
+      "name": "status final",
+      "startedAtUtc": "2026-11-17T16:01:48.2577767\u002B00:00",
+      "elapsedMs": 1517,
+      "request": {
+        "pipeOut": "0x02",
+        "pipeIn": "0x82",
+        "command": "0x10",
+        "payloadHex": "",
+        "packetHex": "AA 2E 10 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 00 02",
+        "checksumBytes": 46,
+        "checksumAdjust": 0,
+        "hidc": true,
+        "checksumHex": "0x0200"
+      },
+      "response": {
+        "received": false,
+        "length": 0,
+        "prefixHex": "",
+        "bodyNonZeroCount": 0,
+        "bodyRedactedReason": "no response",
+        "tailHex": "",
+        "trailingNonZeroCount": 0,
+        "checksumField": "absent",
+        "timedOut": true,
+        "win32Error": 121,
+        "error": "write failed: The semaphore timeout period has expired."
+      },
+      "settleMs": 300
+    }
+  ],
+  "responseChecksumNote": "response bytes 4..41 are redacted and bytes 46..47 (device-specific checksum) are withheld; checksumValid is computed in memory."
+}

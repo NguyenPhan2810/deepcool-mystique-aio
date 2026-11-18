@@ -1,0 +1,40 @@
+{
+  "fixture": "no-unsolicited-traffic",
+  "proves": "The device is strictly request/response. Four reads with no preceding write, on both IN endpoints, all timed out after 1.5 s.",
+  "capturedFrom": "re/tools/captures/07-drain.json",
+  "capturedAtUtc": "2026-11-17T16:00:55.0718561+00:00",
+  "reads": [
+    {
+      "pipe": "0x81",
+      "received": false,
+      "length": 0,
+      "win32Error": 121,
+      "error": "read failed: The semaphore timeout period has expired."
+    },
+    {
+      "pipe": "0x81",
+      "received": false,
+      "length": 0,
+      "win32Error": 121,
+      "error": "read failed: The semaphore timeout period has expired."
+    },
+    {
+      "pipe": "0x82",
+      "received": false,
+      "length": 0,
+      "win32Error": 121,
+      "error": "read failed: The semaphore timeout period has expired."
+    },
+    {
+      "pipe": "0x82",
+      "received": false,
+      "length": 0,
+      "win32Error": 121,
+      "error": "read failed: The semaphore timeout period has expired."
+    }
+  ],
+  "notes": [
+    "Captured before the wedge experiment, on a healthy device.",
+    "A Linux driver does not need a background reader to drain unsolicited events."
+  ]
+}

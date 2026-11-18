@@ -1,0 +1,298 @@
+{
+  "fixture": "init-sequence",
+  "proves": "The full thirteen-command handshake, in the non-ascending order the device requires, with every request and every reply. 0x15, 0x16, 0x17 and 0x0A reply with command echo 0x00, not their own command byte; all other steps echo. A 0x10 read after the sequence reports mode 0xFF.",
+  "capturedFrom": "re/tools/captures/03-init.json",
+  "capturedAtUtc": "2026-11-17T15:47:19.1277894+00:00",
+  "transport": {
+    "out": "0x01",
+    "in": "0x81",
+    "packetLength": 48
+  },
+  "steps": [
+    {
+      "name": "init 0x12",
+      "request": {
+        "hex": "AA 2E 12 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 02 02",
+        "length": 48,
+        "command": "0x12",
+        "checksumHex": "0x0202",
+        "checksumAlgorithm": "LE16 sum of bytes 0..45 inclusive (HIDC included)"
+      },
+      "response": {
+        "received": true,
+        "length": 48,
+        "hexTemplate": "55 2E 12 00 <identifier: 32 uppercase hex characters> 00 00 00 00 00 00 48 49 44 43 <checksum LE16>",
+        "commandEcho": "0x12",
+        "resultCode": "0x00",
+        "checksumValidAgainstCapture": true,
+        "identifierRedacted": true
+      }
+    },
+    {
+      "name": "init 0x02 01 00 00 01 24",
+      "request": {
+        "hex": "AA 2E 02 01 00 00 01 24 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 18 02",
+        "length": 48,
+        "command": "0x02",
+        "checksumHex": "0x0218",
+        "checksumAlgorithm": "LE16 sum of bytes 0..45 inclusive (HIDC included)"
+      },
+      "response": {
+        "received": true,
+        "length": 48,
+        "hex": "55 2E 02 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 9D 01",
+        "commandEcho": "0x02",
+        "resultCode": "0x00",
+        "checksumHex": "0x019D",
+        "checksumValid": true,
+        "checksumRecomputed": true
+      }
+    },
+    {
+      "name": "init 0x03 01",
+      "request": {
+        "hex": "AA 2E 03 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 F4 01",
+        "length": 48,
+        "command": "0x03",
+        "checksumHex": "0x01F4",
+        "checksumAlgorithm": "LE16 sum of bytes 0..45 inclusive (HIDC included)"
+      },
+      "response": {
+        "received": true,
+        "length": 48,
+        "hex": "55 2E 03 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 9E 01",
+        "commandEcho": "0x03",
+        "resultCode": "0x00",
+        "checksumHex": "0x019E",
+        "checksumValid": true,
+        "checksumRecomputed": true
+      }
+    },
+    {
+      "name": "init 0x04 05 00 00 01",
+      "request": {
+        "hex": "AA 2E 04 05 00 00 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 FA 01",
+        "length": 48,
+        "command": "0x04",
+        "checksumHex": "0x01FA",
+        "checksumAlgorithm": "LE16 sum of bytes 0..45 inclusive (HIDC included)"
+      },
+      "response": {
+        "received": true,
+        "length": 48,
+        "hex": "55 2E 04 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 9F 01",
+        "commandEcho": "0x04",
+        "resultCode": "0x00",
+        "checksumHex": "0x019F",
+        "checksumValid": true,
+        "checksumRecomputed": true
+      }
+    },
+    {
+      "name": "init 0x07 00 02",
+      "request": {
+        "hex": "AA 2E 07 00 02 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 F9 01",
+        "length": 48,
+        "command": "0x07",
+        "checksumHex": "0x01F9",
+        "checksumAlgorithm": "LE16 sum of bytes 0..45 inclusive (HIDC included)"
+      },
+      "response": {
+        "received": true,
+        "length": 48,
+        "hex": "55 2E 07 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 A2 01",
+        "commandEcho": "0x07",
+        "resultCode": "0x00",
+        "checksumHex": "0x01A2",
+        "checksumValid": true,
+        "checksumRecomputed": true
+      }
+    },
+    {
+      "name": "init 0x08 00 04",
+      "request": {
+        "hex": "AA 2E 08 00 04 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 FC 01",
+        "length": 48,
+        "command": "0x08",
+        "checksumHex": "0x01FC",
+        "checksumAlgorithm": "LE16 sum of bytes 0..45 inclusive (HIDC included)"
+      },
+      "response": {
+        "received": true,
+        "length": 48,
+        "hex": "55 2E 08 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 A3 01",
+        "commandEcho": "0x08",
+        "resultCode": "0x00",
+        "checksumHex": "0x01A3",
+        "checksumValid": true,
+        "checksumRecomputed": true
+      }
+    },
+    {
+      "name": "init 0x05 01 01",
+      "request": {
+        "hex": "AA 2E 05 01 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 F7 01",
+        "length": 48,
+        "command": "0x05",
+        "checksumHex": "0x01F7",
+        "checksumAlgorithm": "LE16 sum of bytes 0..45 inclusive (HIDC included)"
+      },
+      "response": {
+        "received": true,
+        "length": 48,
+        "hex": "55 2E 05 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 A0 01",
+        "commandEcho": "0x05",
+        "resultCode": "0x00",
+        "checksumHex": "0x01A0",
+        "checksumValid": true,
+        "checksumRecomputed": true
+      }
+    },
+    {
+      "name": "init 0x0B",
+      "request": {
+        "hex": "AA 2E 0B 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 FB 01",
+        "length": 48,
+        "command": "0x0B",
+        "checksumHex": "0x01FB",
+        "checksumAlgorithm": "LE16 sum of bytes 0..45 inclusive (HIDC included)"
+      },
+      "response": {
+        "received": true,
+        "length": 48,
+        "hex": "55 2E 0B 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 A6 01",
+        "commandEcho": "0x0B",
+        "resultCode": "0x00",
+        "checksumHex": "0x01A6",
+        "checksumValid": true,
+        "checksumRecomputed": true
+      }
+    },
+    {
+      "name": "init 0x06 01",
+      "request": {
+        "hex": "AA 2E 06 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 F7 01",
+        "length": 48,
+        "command": "0x06",
+        "checksumHex": "0x01F7",
+        "checksumAlgorithm": "LE16 sum of bytes 0..45 inclusive (HIDC included)"
+      },
+      "response": {
+        "received": true,
+        "length": 48,
+        "hex": "55 2E 06 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 A1 01",
+        "commandEcho": "0x06",
+        "resultCode": "0x00",
+        "checksumHex": "0x01A1",
+        "checksumValid": true,
+        "checksumRecomputed": true
+      }
+    },
+    {
+      "name": "init 0x15 2D 2D",
+      "request": {
+        "hex": "AA 2E 15 2D 2D 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 5F 02",
+        "length": 48,
+        "command": "0x15",
+        "checksumHex": "0x025F",
+        "checksumAlgorithm": "LE16 sum of bytes 0..45 inclusive (HIDC included)"
+      },
+      "response": {
+        "received": true,
+        "length": 48,
+        "hex": "55 2E 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 9B 01",
+        "commandEcho": "0x00",
+        "resultCode": "0x00",
+        "checksumHex": "0x019B",
+        "checksumValid": true,
+        "checksumRecomputed": true
+      }
+    },
+    {
+      "name": "init 0x16 2D 2D",
+      "request": {
+        "hex": "AA 2E 16 2D 2D 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 60 02",
+        "length": 48,
+        "command": "0x16",
+        "checksumHex": "0x0260",
+        "checksumAlgorithm": "LE16 sum of bytes 0..45 inclusive (HIDC included)"
+      },
+      "response": {
+        "received": true,
+        "length": 48,
+        "hex": "55 2E 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 9B 01",
+        "commandEcho": "0x00",
+        "resultCode": "0x00",
+        "checksumHex": "0x019B",
+        "checksumValid": true,
+        "checksumRecomputed": true
+      }
+    },
+    {
+      "name": "init 0x17 2D 2D",
+      "request": {
+        "hex": "AA 2E 17 2D 2D 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 61 02",
+        "length": 48,
+        "command": "0x17",
+        "checksumHex": "0x0261",
+        "checksumAlgorithm": "LE16 sum of bytes 0..45 inclusive (HIDC included)"
+      },
+      "response": {
+        "received": true,
+        "length": 48,
+        "hex": "55 2E 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 9B 01",
+        "commandEcho": "0x00",
+        "resultCode": "0x00",
+        "checksumHex": "0x019B",
+        "checksumValid": true,
+        "checksumRecomputed": true
+      }
+    },
+    {
+      "name": "init 0x0A EA 07 02 02 02 27 21",
+      "request": {
+        "hex": "AA 2E 0A EA 07 02 02 02 27 21 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 39 03",
+        "length": 48,
+        "command": "0x0A",
+        "checksumHex": "0x0339",
+        "checksumAlgorithm": "LE16 sum of bytes 0..45 inclusive (HIDC included)"
+      },
+      "response": {
+        "received": true,
+        "length": 48,
+        "hex": "55 2E 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 9B 01",
+        "commandEcho": "0x00",
+        "resultCode": "0x00",
+        "checksumHex": "0x019B",
+        "checksumValid": true,
+        "checksumRecomputed": true
+      }
+    },
+    {
+      "name": "status after init",
+      "request": {
+        "hex": "AA 2E 10 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 00 02",
+        "length": 48,
+        "command": "0x10",
+        "checksumHex": "0x0200",
+        "checksumAlgorithm": "LE16 sum of bytes 0..45 inclusive (HIDC included)"
+      },
+      "response": {
+        "received": true,
+        "length": 48,
+        "hex": "55 2E 10 00 00 FF 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 AA 02",
+        "commandEcho": "0x10",
+        "resultCode": "0x00",
+        "checksumHex": "0x02AA",
+        "checksumValid": true,
+        "checksumRecomputed": false
+      }
+    }
+  ],
+  "notes": [
+    "Settle time used: 10 ms per step, 100 ms after 0x0A, exactly as MystiquePackets.",
+    "Response hexes for zero-body replies were reconstructed from the capture's echo/result bytes and recomputed checksums. The capture itself recorded checksumValid=true and bodyNonZeroCount=0 for each of them.",
+    "0x12 is the only step whose reply carries the identifier; its exact reply is in 01-info-0x12.json and is not repeated here.",
+    "The first status read after init is the last entry and is byte-identical to 02-status-machine-info-0x10.json."
+  ]
+}

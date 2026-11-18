@@ -1,0 +1,42 @@
+{
+  "fixture": "info-0x12",
+  "proves": "The 0x12 reply is 48 bytes, echoes 0x12, reports result 0x00, and carries a 32-character uppercase-hex identifier at bytes 4..35 followed by six zero bytes. The identifier is redacted here; its length and alphabet are pinned, its value is not.",
+  "capturedFrom": "re/tools/captures/01-info.json",
+  "capturedAtUtc": "2026-11-17T15:44:07.3347659+00:00",
+  "transport": {
+    "out": "0x01",
+    "in": "0x81",
+    "packetLength": 48
+  },
+  "request": {
+    "hex": "AA 2E 12 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 02 02",
+    "length": 48,
+    "command": "0x12",
+    "checksumHex": "0x0202",
+    "checksumAlgorithm": "LE16 sum of bytes 0..45 inclusive (HIDC included)"
+  },
+  "response": {
+    "received": true,
+    "length": 48,
+    "hexTemplate": "55 2E 12 00 <identifier: 32 uppercase hex characters, bytes 4..35> 00 00 00 00 00 00 48 49 44 43 <checksum LE16>",
+    "commandEcho": "0x12",
+    "resultCode": "0x00",
+    "identifier": {
+      "offset": 4,
+      "length": 32,
+      "alphabet": "0-9 A-F",
+      "redacted": true
+    },
+    "zeroPadding": {
+      "offset": 36,
+      "length": 6
+    },
+    "tailHex": "48 49 44 43",
+    "checksum": "device-specific: sum of bytes 0..45 includes the identifier, so the expected checksum cannot be published. The capture verified it matches the device's own reply.",
+    "checksumValidAgainstCapture": true
+  },
+  "notes": [
+    "A 64-byte read buffer was supplied; the device transferred exactly 48 bytes. No 64-byte response has ever been observed.",
+    "Twice-captured (01-info.json and 01b-info.json) with identical prefix, length, result code and body shape; the identifier was identical, the value is not recorded."
+  ]
+}

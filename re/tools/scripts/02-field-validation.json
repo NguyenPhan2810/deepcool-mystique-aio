@@ -1,0 +1,42 @@
+{
+  "name": "02-field-validation",
+  "note": "Use response byte 3 as an oracle: does the firmware cross-check any payload field? Each step changes only the named bytes. Expected result for a permissive firmware is 0x00 everywhere; any non-zero status proves a validation dependency and therefore a real semantic link between the fields.",
+  "basePayload": "24 00 00 09 00 00 27 00 09 03 00 30 05 00 06 0C 00 07 04 00 1E B8 0B 00 B8 0B 00 00 00 00 00 00 00 00 00 00 00 00 00",
+  "steps": [
+    { "name": "baseline 48C / [8]=09", "cmd": "0x01", "settleMs": 300 },
+
+    { "name": "GPU 48C, [8]=05 (C# would say 09)", "cmd": "0x01", "patch": { "8": "05" }, "settleMs": 300 },
+    { "name": "GPU 48C, [8]=06 (C# would say 09)", "cmd": "0x01", "patch": { "8": "06" }, "settleMs": 300 },
+    { "name": "GPU 48C, [8]=00", "cmd": "0x01", "patch": { "8": "00" }, "settleMs": 300 },
+    { "name": "GPU 48C, [8]=FF", "cmd": "0x01", "patch": { "8": "FF" }, "settleMs": 300 },
+
+    { "name": "GPU 30C, [8]=05 (C#-consistent)", "cmd": "0x01", "patch": { "8": "05", "11": "1E" }, "settleMs": 300 },
+    { "name": "GPU 30C, [8]=09 (C# would say 05)", "cmd": "0x01", "patch": { "8": "09", "11": "1E" }, "settleMs": 300 },
+    { "name": "GPU 36C, [8]=06 (C#-consistent)", "cmd": "0x01", "patch": { "8": "06", "11": "24" }, "settleMs": 300 },
+    { "name": "GPU 36C, [8]=09", "cmd": "0x01", "patch": { "8": "09", "11": "24" }, "settleMs": 300 },
+    { "name": "GPU 0C, [8]=05", "cmd": "0x01", "patch": { "8": "05", "11": "00" }, "settleMs": 300 },
+    { "name": "GPU 127C, [8]=09", "cmd": "0x01", "patch": { "8": "09", "11": "7F" }, "settleMs": 300 },
+
+    { "name": "[24..25] zeroed, [21..22] kept", "cmd": "0x01", "patch": { "24": "00", "25": "00" }, "settleMs": 300 },
+    { "name": "[21..22] zeroed, [24..25] kept", "cmd": "0x01", "patch": { "21": "00", "22": "00" }, "settleMs": 300 },
+    { "name": "[24..25]=FFFF, [21..22] kept", "cmd": "0x01", "patch": { "24": "FF", "25": "FF" }, "settleMs": 300 },
+    { "name": "[21..22]=FFFF, [24..25] kept", "cmd": "0x01", "patch": { "21": "FF", "22": "FF" }, "settleMs": 300 },
+
+    { "name": "[20]=00, fractional words kept", "cmd": "0x01", "patch": { "20": "00" }, "settleMs": 300 },
+    { "name": "[20]=FF, fractional words kept", "cmd": "0x01", "patch": { "20": "FF" }, "settleMs": 300 },
+    { "name": "[18]=FF (clock whole byte)", "cmd": "0x01", "patch": { "18": "FF" }, "settleMs": 300 },
+
+    { "name": "[9]=00", "cmd": "0x01", "patch": { "9": "00" }, "settleMs": 300 },
+    { "name": "[9]=FF", "cmd": "0x01", "patch": { "9": "FF" }, "settleMs": 300 },
+    { "name": "[12]=00", "cmd": "0x01", "patch": { "12": "00" }, "settleMs": 300 },
+    { "name": "[14]=00", "cmd": "0x01", "patch": { "14": "00" }, "settleMs": 300 },
+    { "name": "[15]=00", "cmd": "0x01", "patch": { "15": "00" }, "settleMs": 300 },
+    { "name": "[17]=00", "cmd": "0x01", "patch": { "17": "00" }, "settleMs": 300 },
+
+    { "name": "[0]=C8 (cpu temp 200)", "cmd": "0x01", "patch": { "0": "C8" }, "settleMs": 300 },
+    { "name": "[3]=C8 (cpu usage 200)", "cmd": "0x01", "patch": { "3": "C8" }, "settleMs": 300 },
+    { "name": "[6]=C8 (mem 200)", "cmd": "0x01", "patch": { "6": "C8" }, "settleMs": 300 },
+
+    { "name": "restore baseline", "cmd": "0x01", "settleMs": 400 }
+  ]
+}

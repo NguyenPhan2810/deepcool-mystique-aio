@@ -1,0 +1,31 @@
+{
+  "fixture": "telemetry-marker-mismatch",
+  "proves": "The HIDC trailer is validated independently of the checksum. With bytes 42..45 zeroed and a checksum that is correct for that packet, the device replies with result 0x01 (not 0x02).",
+  "capturedFrom": "re/tools/captures/05-checksum.json",
+  "capturedAtUtc": "2026-11-17T15:53:39.8520064+00:00",
+  "transport": {
+    "out": "0x02",
+    "in": "0x82",
+    "packetLength": 48
+  },
+  "request": {
+    "hex": "AA 2E 01 24 00 00 09 00 00 27 00 09 03 00 30 05 00 06 0C 00 07 04 00 1E B8 0B 00 B8 0B 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 2F 03",
+    "length": 48,
+    "command": "0x01",
+    "checksumHex": "0x032F",
+    "checksumAlgorithm": "LE16 sum of bytes 0..45 inclusive (HIDC included)"
+  },
+  "response": {
+    "received": true,
+    "length": 48,
+    "hex": "55 2E 01 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 48 49 44 43 9D 01",
+    "commandEcho": "0x01",
+    "resultCode": "0x01",
+    "checksumHex": "0x019D",
+    "checksumValid": true
+  },
+  "notes": [
+    "0x01 and 0x02 are therefore distinct error classes: 0x02 = sum mismatch, 0x01 = trailer marker mismatch (or a superset error that marker failure hits).",
+    "Which check runs first when both are broken was NOT established; that experiment was voided when the device stopped answering (see findings)."
+  ]
+}
