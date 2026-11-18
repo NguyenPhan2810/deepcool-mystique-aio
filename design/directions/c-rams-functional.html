@@ -1,0 +1,796 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mystique Control</title>
+<style>
+  :root{
+    --ground:#F2F0E9;
+    --field:#EAE7DC;
+    --ink:#17160F;
+    --ink-2:#575347;
+    --ink-3:#6B675A;
+    --rule:#D2CEBF;
+    --rule-2:#B8B3A2;
+    --screen:#191812;
+    --scr-hi:#EEEAE0;
+    --scr-mid:#A8A492;
+    --green:#6C9E78;
+    --green-ink:#2C6849;
+    --sans:"Helvetica Neue",Helvetica,Arial,"Segoe UI",sans-serif;
+    --mono:"SF Mono",Consolas,"Liberation Mono",monospace;
+  }
+
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    width:1440px;height:900px;overflow:hidden;
+    background:var(--ground);color:var(--ink);
+    font:14px/1.4 var(--sans);
+    -webkit-font-smoothing:antialiased;
+    font-kerning:normal;
+  }
+  button{font-family:var(--sans)}
+  :focus-visible{outline:1px solid var(--ink);outline-offset:2px}
+
+  .sheet{
+    width:1440px;height:900px;
+    padding:20px 32px 18px;
+    display:grid;
+    grid-template-rows:22px 228px minmax(0,1fr) 144px;
+    row-gap:14px;
+    position:relative;
+  }
+  /* one continuous rule through both gutters: main area | status rail */
+  .sheet::after{
+    content:"";position:absolute;left:calc(100% - 482px);top:56px;height:668px;width:1px;
+    background:var(--rule);pointer-events:none;
+  }
+
+  /* ---------- masthead ---------- */
+  .mast{
+    display:flex;align-items:baseline;justify-content:space-between;
+    border-bottom:1px solid var(--ink);
+  }
+  .wordmark{
+    font:700 13px/1 var(--sans);letter-spacing:.2em;text-transform:uppercase;
+    transform:translateY(-1px);
+  }
+  .mast-meta{
+    font:400 12px/1 var(--mono);letter-spacing:.04em;color:var(--ink-3);
+    text-transform:uppercase;
+  }
+
+  /* ---------- shared type ---------- */
+  .head{display:flex;align-items:center;height:15px;white-space:nowrap}
+  .idx{
+    font:400 12px/1 var(--mono);color:var(--ink-3);
+    width:26px;flex:none;letter-spacing:.02em;
+  }
+  .mname{
+    font:600 12px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;
+  }
+  .mnote{
+    margin-left:auto;font:400 12px/1 var(--mono);color:var(--ink-3);
+    letter-spacing:.02em;
+  }
+  .fine{font:400 12px/1.45 var(--sans);color:var(--ink-3);margin:0}
+
+  /* ---------- top band ---------- */
+  .band{
+    display:grid;
+    grid-template-columns:272px 1fr 440px;
+    column-gap:20px;
+    align-items:stretch;
+    min-height:0;
+  }
+  .preview{display:flex;flex-direction:column}
+  .preview .screen{margin-top:9px}
+  .phead{
+    display:flex;justify-content:space-between;align-items:center;
+    height:15px;
+    font:400 12px/1 var(--mono);letter-spacing:.03em;color:var(--ink-3);
+    text-transform:uppercase;
+  }
+  .live{display:flex;align-items:center;gap:6px;color:var(--green-ink);font-family:var(--sans);font-weight:600;letter-spacing:.14em;font-size:12px}
+  .lamp{
+    width:7px;height:7px;border-radius:50%;background:var(--green-ink);
+    display:inline-block;flex:none;
+  }
+  .lamp.hollow{background:transparent;box-shadow:inset 0 0 0 1px var(--ink-3)}
+  .lamp.off{background:transparent;box-shadow:inset 0 0 0 1px var(--ink-3)}
+
+  .screen{
+    width:272px;height:204px;
+    background:#26241C;
+    display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;
+    gap:1px;
+    position:relative;
+  }
+  .scell{
+    background:var(--screen);
+    padding:12px 8px 11px 12px;
+    display:flex;flex-direction:column;justify-content:space-between;
+  }
+  .slabel{
+    font:600 12px/1 var(--sans);letter-spacing:.16em;color:var(--scr-mid);
+  }
+  .sval{
+    font:400 31px/1 var(--sans);letter-spacing:-.04em;color:var(--green);
+    font-variant-numeric:tabular-nums;display:flex;align-items:baseline;gap:4px;
+    white-space:nowrap;
+  }
+  .sun{font:600 12px/1 var(--sans);letter-spacing:.02em;color:var(--scr-mid)}
+  .screen.blank .sval{color:#4A4A40}
+  .screen.blank .slabel{color:#6A6759}
+
+  .ident{display:flex;flex-direction:column;min-height:0;height:100%}
+  .spec{margin:9px 0 0;display:grid;grid-template-columns:92px 1fr;align-items:baseline}
+  .spec dt{
+    font:600 12px/1 var(--sans);letter-spacing:.12em;color:var(--ink-3);
+    text-transform:uppercase;padding:11px 0 10px;border-top:1px solid var(--rule);
+  }
+  .spec dd{
+    margin:0;font:400 14px/1 var(--mono);letter-spacing:.01em;color:var(--ink);
+    padding:11px 0 10px;border-top:1px solid var(--rule);
+  }
+  .spec dt:last-of-type,.spec dd:last-of-type{border-bottom:1px solid var(--rule)}
+  .ident .push{margin-top:auto}
+
+  .actions{display:flex;gap:8px}
+  .btn{
+    height:30px;padding:0 13px;border:1px solid var(--ink);border-radius:2px;
+    background:transparent;color:var(--ink);
+    font:600 12px/1 var(--sans);letter-spacing:.1em;text-transform:uppercase;
+    cursor:pointer;
+  }
+  .btn:hover:not(:disabled){background:var(--ink);color:var(--ground)}
+  .btn.primary{background:var(--ink);color:var(--ground)}
+  .btn.primary:hover{background:#000}
+  .btn:disabled{color:var(--ink-3);border-color:var(--rule-2);cursor:not-allowed}
+  .btn.ghost{border-color:var(--rule-2)}
+
+  .statecol{display:flex;flex-direction:column;min-height:0;height:100%}
+  .statecol .ledger{margin-top:9px}
+  .ledger{border-top:1px solid var(--rule)}
+  .lrow{
+    display:grid;grid-template-columns:164px 122px 1fr;align-items:center;
+    height:31px;border-bottom:1px solid var(--rule);
+  }
+  .lrow .lk{
+    font:600 12px/1 var(--sans);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);
+  }
+  .lrow .lv{display:flex;align-items:center;gap:7px;font:600 13px/1 var(--sans);letter-spacing:.1em;text-transform:uppercase}
+  .lrow .lv .lamp{margin:0}
+  .lrow .ln{font:400 12px/1 var(--mono);color:var(--ink-3);text-align:right;letter-spacing:0}
+
+  .block{
+    margin-top:auto;background:var(--ink);color:var(--ground);
+    padding:12px 14px 13px;
+  }
+  .block h2{
+    margin:0 0 6px;font:600 12px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;
+  }
+  .block p{margin:0;font:400 14px/1.4 var(--sans);color:#EDEBE2;max-width:38ch}
+  .block code{display:block;margin-top:8px;font:400 12px/1 var(--mono);color:#B7B3A4;letter-spacing:0}
+
+  /* ---------- middle ---------- */
+  .columns{display:grid;grid-template-columns:1fr 440px;column-gap:20px;min-height:0}
+  .settings{display:flex;flex-direction:column;min-height:0}
+
+  .mod{padding-top:8px;border-top:1px solid var(--rule);min-height:0}
+  .settings > * + *{margin-top:10px}
+
+  /* brightness */
+  .bright{display:flex;gap:22px;align-items:flex-start;margin-top:5px}
+  .bval{
+    width:96px;flex:none;display:flex;align-items:baseline;gap:3px;
+    font-variant-numeric:tabular-nums;
+  }
+  .bval .n{font:400 48px/1 var(--sans);letter-spacing:-.035em}
+  .bval .u{font:400 15px/1 var(--sans);color:var(--ink-2)}
+  .fcol{flex:1;min-width:0}
+  .fader{position:relative;height:42px}
+  .rail{position:absolute;left:0;right:0;top:14px;height:2px;background:var(--rule-2)}
+  .fill{position:absolute;left:0;top:14px;height:2px;background:var(--ink)}
+  .fader input[type=range]{
+    position:absolute;inset:0;width:100%;height:42px;margin:0;padding:0;
+    background:transparent;appearance:none;-webkit-appearance:none;cursor:ew-resize;
+  }
+  .fader input[type=range]::-webkit-slider-runnable-track{height:42px;background:transparent;border:0}
+  .fader input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:14px;height:26px;margin-top:8px;
+    background:var(--ground);border:1px solid var(--ink);border-radius:1px;
+  }
+  .fader input[type=range]::-moz-range-track{height:42px;background:transparent;border:0}
+  .fader input[type=range]::-moz-range-thumb{
+    width:12px;height:24px;background:var(--ground);border:1px solid var(--ink);border-radius:1px;
+  }
+  .scale{display:flex;justify-content:space-between;margin-top:2px}
+  .scale button{
+    appearance:none;background:none;border:0;padding:0;cursor:pointer;
+    font:400 12px/1 var(--mono);color:var(--ink-3);letter-spacing:0;
+    position:relative;height:12px;
+  }
+  .scale button::before{
+    content:"";position:absolute;left:50%;top:-4px;width:1px;height:4px;background:var(--rule-2);
+  }
+  .scale button:first-child::before{left:0}
+  .scale button:last-child::before{left:auto;right:0}
+  .scale button:hover{color:var(--ink)}
+  .scale button.on{color:var(--ink);font-weight:700}
+
+  /* paired row */
+  .pair{display:grid;grid-template-columns:1fr 1fr;column-gap:20px}
+  .seg{
+    display:inline-flex;border:1px solid var(--ink);border-radius:2px;
+    overflow:hidden;background:transparent;margin-top:5px;
+  }
+  .seg button{
+    appearance:none;border:0;border-left:1px solid var(--ink);background:transparent;
+    color:var(--ink);font:400 13px/1 var(--mono);letter-spacing:.02em;
+    height:28px;padding:0 14px;cursor:pointer;
+  }
+  .seg button:first-child{border-left:0}
+  .seg button:hover{background:var(--field)}
+  .seg button.on{background:var(--ink);color:var(--ground)}
+  .seg button.on:hover{background:var(--ink)}
+  .rotnote{margin:7px 0 0;font:400 12px/1.2 var(--sans);color:var(--ink-3)}
+  .rotnote b{font-weight:600;color:var(--ink-2)}
+  .warnnote{color:var(--ink);font-weight:600}
+
+  .pairline{display:flex;align-items:center;gap:26px;margin-top:5px}
+  .pairline .lab{
+    font:600 12px/1 var(--sans);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);
+    width:78px;flex:none;
+  }
+  .pairline .seg{margin-top:0}
+
+  /* fields */
+  .grid2{display:grid;grid-template-columns:1fr 1fr;column-gap:20px;margin-top:4px}
+  .field{position:relative;min-width:0}
+  .flabel{
+    font:600 12px/1 var(--sans);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);
+    display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;
+  }
+  .fcount{font:400 12px/1 var(--mono);color:var(--ink-3);letter-spacing:0}
+  select,input[type=text]{
+    width:100%;height:30px;border:1px solid var(--rule-2);border-radius:2px;
+    background:transparent;color:var(--ink);
+    font:400 14px/1 var(--sans);padding:0 10px;
+    appearance:none;-webkit-appearance:none;
+  }
+  input[type=text]{font-family:var(--mono);font-size:13px;letter-spacing:.01em}
+  select{background-image:none;padding-right:28px;cursor:pointer}
+  select:hover,input[type=text]:hover{border-color:var(--ink-3)}
+  select:focus,input[type=text]:focus{outline:none;border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+  .caret{position:absolute;right:10px;bottom:12px;width:0;height:0;pointer-events:none;
+    border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid var(--ink)}
+
+  /* ---------- operations ---------- */
+  .ops{
+    border-top:1px solid var(--rule);padding-top:8px;
+    display:flex;flex-direction:column;min-height:0;
+  }
+  .ops .head{margin-bottom:9px}
+  .tag{
+    margin-left:auto;font:600 12px/1 var(--sans);letter-spacing:.1em;text-transform:uppercase;
+    border:1px solid var(--rule-2);border-radius:2px;height:17px;display:inline-flex;align-items:center;
+    padding:0 6px;color:var(--ink-2);
+  }
+  .filefield{
+    border:1px solid var(--rule-2);border-radius:2px;
+    padding:14px 12px 13px;background:transparent;
+  }
+  .filefield .fname{
+    display:flex;justify-content:space-between;align-items:baseline;
+    font:400 14px/1.2 var(--sans);color:var(--ink);
+  }
+  .filefield .fname .ext{font:400 12px/1 var(--mono);color:var(--ink-3);letter-spacing:.04em}
+  .filefield .fmeta{margin-top:6px;font:400 12px/1 var(--mono);color:var(--ink-3)}
+  .filerow{display:flex;align-items:center;justify-content:space-between;margin-top:9px}
+  .filerow .hint{font:400 12px/1.3 var(--sans);color:var(--ink-3);max-width:250px;text-align:right}
+  .btn.small{height:30px;font-size:12px}
+
+  .plan{margin-top:20px}
+  .plan .head{margin-bottom:0}
+  .plan table{width:100%;border-collapse:collapse;margin-top:7px}
+  .plan tr{border-top:1px solid var(--rule)}
+  .plan tr:last-child{border-bottom:1px solid var(--rule)}
+  .plan td{
+    height:34px;padding:0;vertical-align:middle;
+    font:600 12px/1 var(--sans);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);
+  }
+  .plan td.v{
+    text-align:right;font:400 16px/1 var(--mono);letter-spacing:0;color:var(--ink);
+    font-variant-numeric:tabular-nums;
+  }
+  .plan td.v small{font:400 11.5px/1 var(--mono);color:var(--ink-3);letter-spacing:0;margin-left:5px}
+
+  .foot{margin-top:auto;padding-top:12px;border-top:1px solid var(--rule)}
+  .send{
+    width:100%;height:40px;border:1px solid var(--ink);border-radius:2px;
+    background:var(--ink);color:var(--ground);
+    font:600 12px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;cursor:pointer;
+  }
+  .send:hover{background:#000}
+  .send.armed{background:var(--ground);color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+  .sendbar{display:flex;gap:8px}
+  .sendbar .send{flex:1}
+  .sendbar .btn{height:40px;padding:0 14px}
+  .sendnote{margin:9px 0 0;font:400 12px/1.45 var(--sans);color:var(--ink-3)}
+  .sendnote b{color:var(--ink-2);font-weight:600}
+
+  /* ---------- log ---------- */
+  .log{
+    border-top:1px solid var(--ink);padding-top:9px;
+    display:flex;flex-direction:column;min-height:0;
+  }
+  .log .head{margin-bottom:7px}
+  .log .head .mnote{margin-left:0;padding-left:14px}
+  .logtools{margin-left:auto;display:flex;gap:14px;align-items:baseline}
+  .logtools button{
+    appearance:none;background:none;border:0;padding:0;cursor:pointer;
+    font:600 12px/1 var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2);
+  }
+  .logtools button:hover{color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+
+  .lrowgrid{
+    display:grid;grid-template-columns:94px 66px 300px 96px 1fr;
+    align-items:center;
+  }
+  .logrows{overflow:hidden;flex:1}
+  .lhead{
+    height:18px;border-bottom:1px solid var(--rule-2);
+    font:600 12px/1 var(--sans);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);
+  }
+  .lhead span{padding-right:10px}
+  .lrow2{
+    height:23px;border-bottom:1px solid #E3DFD2;
+    font:400 13px/1 var(--mono);color:var(--ink);letter-spacing:0;
+  }
+  .lrow2 span{padding-right:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .lrow2 .t{color:var(--ink-2)}
+  .lrow2 .res{color:var(--green-ink)}
+  .lrow2 .note{
+    font:400 12px/1 var(--sans);color:var(--ink-3);letter-spacing:.01em;
+  }
+  .lrow2 .dash{color:var(--ink-3)}
+  .lrow2.fail{background:#E9E5D8}
+  .lrow2.fail .res{
+    color:var(--ink);
+  }
+  .lrow2.fail .res b{
+    background:var(--ink);color:var(--ground);padding:3px 5px 2px;font-weight:400;
+    font-family:var(--sans);font-size:12px;letter-spacing:.06em;
+  }
+  .lrow2.fail .note{color:var(--ink);font-weight:600}
+  .lrow2.fail .t{color:var(--ink)}
+  .logempty{padding-top:14px;font:400 13px/1 var(--mono);color:var(--ink-3)}
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <header class="mast">
+    <span class="wordmark">Mystique Control</span>
+    <span class="mast-meta">Deepcool Mystique 360 &nbsp;·&nbsp; 2.8 in &nbsp;·&nbsp; 640 × 480 &nbsp;·&nbsp; USB 3633:0009</span>
+  </header>
+
+  <!-- ================= TOP BAND ================= -->
+  <section class="band">
+    <div class="preview">
+      <div class="phead">
+        <span>Panel · 640 × 480</span>
+        <span class="live"><i class="lamp"></i>Live</span>
+      </div>
+      <div class="screen" id="screen">
+        <div class="scell"><span class="slabel">CPU</span><span class="sval">38<span class="sun">°C</span></span></div>
+        <div class="scell"><span class="slabel">GPU</span><span class="sval">52<span class="sun">°C</span></span></div>
+        <div class="scell"><span class="slabel">PUMP</span><span class="sval">2,780<span class="sun">RPM</span></span></div>
+        <div class="scell"><span class="slabel">BRIGHT</span><span class="sval"><span id="pvBright">70</span><span class="sun">%</span></span></div>
+      </div>
+    </div>
+
+    <div class="ident">
+      <div class="head"><span class="idx">01</span><span class="mname">Connection</span></div>
+      <dl class="spec">
+        <dt>Device</dt><dd>MYSTIQUE</dd>
+        <dt>Address</dt><dd>3633:0009 &nbsp;·&nbsp; usb 003/004</dd>
+        <dt>Transport</dt><dd>usbhid &nbsp;·&nbsp; 2.8 in &nbsp;·&nbsp; 640 × 480</dd>
+      </dl>
+      <div class="push">
+        <div class="actions">
+          <button class="btn" id="openBtn" disabled>Open device</button>
+          <button class="btn" id="closeBtn" disabled>Close device</button>
+          <button class="btn primary" id="stopBtn">Stop service</button>
+        </div>
+        <p class="fine" style="margin-top:7px">Open and close are unavailable while the service holds the handle.</p>
+      </div>
+    </div>
+
+    <div class="statecol">
+      <div class="head"><span class="mname" style="margin-left:0">Device state</span></div>
+      <div class="ledger">
+        <div class="lrow">
+          <span class="lk">Telemetry service</span>
+          <span class="lv"><i class="lamp" id="svcLamp"></i><span id="svcVal">Running</span></span>
+          <span class="ln" id="svcNote">pid 2481</span>
+        </div>
+        <div class="lrow">
+          <span class="lk">Device handle</span>
+          <span class="lv"><i class="lamp hollow" id="hdlLamp"></i><span id="hdlVal">Closed</span></span>
+          <span class="ln" id="hdlNote">not opened</span>
+        </div>
+        <div class="lrow">
+          <span class="lk">Last packet</span>
+          <span class="lv" style="font-family:var(--mono);font-weight:400;letter-spacing:0;font-size:13px">11:29:48</span>
+          <span class="ln">0x10 · query</span>
+        </div>
+      </div>
+      <div class="block" id="conflict">
+        <h2>Device unavailable</h2>
+        <p>The telemetry service holds the only handle. Stop it to open the device here.</p>
+        <code>open(/dev/hidraw3) → EBUSY</code>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= MIDDLE ================= -->
+  <div class="columns">
+    <div class="settings">
+
+      <!-- 02 brightness -->
+      <section class="mod">
+        <div class="head"><span class="idx">02</span><span class="mname">Brightness</span><span class="mnote">0—100</span></div>
+        <div class="bright">
+          <div class="bval"><span class="n" id="brightNum">70</span><span class="u">%</span></div>
+          <div class="fcol">
+            <div class="fader">
+              <div class="rail"></div>
+              <div class="fill" id="brightFill"></div>
+              <input type="range" min="0" max="100" step="1" value="70" id="brightSlider" aria-label="Brightness, percent">
+            </div>
+            <div class="scale" id="presets">
+              <button data-v="0">0</button>
+              <button data-v="25">25</button>
+              <button data-v="50">50</button>
+              <button data-v="75">75</button>
+              <button data-v="100">100</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 03 rotation / 04 screen & gyro -->
+      <div class="pair">
+        <section class="mod">
+          <div class="head"><span class="idx">03</span><span class="mname">Rotation</span></div>
+          <div class="seg" id="rotSeg">
+            <button data-v="0" class="on">0°</button>
+            <button data-v="90">90°</button>
+            <button data-v="180">180°</button>
+            <button data-v="270">270°</button>
+          </div>
+          <p class="rotnote" id="rotNote">Ignored while the gyroscope is enabled.</p>
+        </section>
+
+        <section class="mod">
+          <div class="head"><span class="idx">04</span><span class="mname">Screen &amp; gyro</span></div>
+          <div class="pairline">
+            <span class="lab">Screen</span>
+            <div class="seg" id="scrSeg">
+              <button data-v="on" class="on">On</button>
+              <button data-v="off">Off</button>
+            </div>
+            <span class="lab" style="width:auto">Gyroscope</span>
+            <div class="seg" id="gyroSeg">
+              <button data-v="allowed">Allowed</button>
+              <button data-v="off" class="on">Off</button>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- 05 areas -->
+      <section class="mod">
+        <div class="head"><span class="idx">05</span><span class="mname">Display areas</span></div>
+        <div class="grid2">
+          <div class="field">
+            <label class="flabel" for="areaMain">Main display area</label>
+            <select id="areaMain">
+              <option>CPU Frequency</option>
+              <option>Time</option>
+              <option>Pump Speed</option>
+              <option>CPU FanSpeed</option>
+              <option>CPU FanSpeed + Pump Speed</option>
+              <option selected>Temperature</option>
+            </select>
+            <i class="caret"></i>
+          </div>
+          <div class="field">
+            <label class="flabel" for="areaAux">Auxiliary display area</label>
+            <select id="areaAux">
+              <option>Voltage Mode</option>
+              <option selected>System Monitor</option>
+              <option>Core Data</option>
+            </select>
+            <i class="caret"></i>
+          </div>
+        </div>
+      </section>
+
+      <!-- 06 timing -->
+      <section class="mod">
+        <div class="head"><span class="idx">06</span><span class="mname">Media timing</span></div>
+        <div class="grid2">
+          <div class="field">
+            <label class="flabel" for="switchTime">Image switch time</label>
+            <select id="switchTime">
+              <option>3 s</option>
+              <option selected>5 s</option>
+              <option>7 s</option>
+            </select>
+            <i class="caret"></i>
+          </div>
+          <div class="field">
+            <label class="flabel" for="switchAnim">Image switch animation</label>
+            <select id="switchAnim">
+              <option selected>Split Display</option>
+              <option>Scroll</option>
+              <option>Fade In/Out</option>
+            </select>
+            <i class="caret"></i>
+          </div>
+        </div>
+      </section>
+
+      <!-- 07 labels -->
+      <section class="mod">
+        <div class="head"><span class="idx">07</span><span class="mname">Labels</span><span class="mnote">ASCII · 39 B MAX</span></div>
+        <div class="grid2">
+          <div class="field">
+            <label class="flabel" for="cpuName">CPU name <span class="fcount" id="cpuCount">20 / 39 B</span></label>
+            <input type="text" id="cpuName" value="Intel Core i9-14900K" maxlength="39" spellcheck="false">
+          </div>
+          <div class="field">
+            <label class="flabel" for="gpuName">GPU name <span class="fcount" id="gpuCount">23 / 39 B</span></label>
+            <input type="text" id="gpuName" value="NVIDIA GeForce RTX 4070" maxlength="39" spellcheck="false">
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- 08 upload -->
+    <section class="ops">
+      <div class="head"><span class="idx">08</span><span class="mname">Image upload</span><span class="tag" id="upTag">Not sent</span></div>
+
+      <div class="filefield">
+        <div class="fname"><span>mystique-boot.png</span><span class="ext">PNG</span></div>
+        <div class="fmeta">640 × 480 &nbsp;·&nbsp; 214,016 bytes</div>
+      </div>
+      <div class="filerow">
+        <button class="btn small ghost">Choose file…</button>
+        <span class="hint">Drop a file here, or choose one.</span>
+      </div>
+
+      <div class="plan">
+        <div class="head"><span class="mname">Plan</span></div>
+        <table>
+          <tr><td>Frames</td><td class="v">3</td></tr>
+          <tr><td>Total bytes</td><td class="v">1,843,200</td></tr>
+          <tr><td>Chunks</td><td class="v">450<small>× 4,096 B</small></td></tr>
+        </table>
+      </div>
+
+      <div class="foot">
+        <div class="sendbar">
+          <button class="send" id="sendBtn">Send to panel</button>
+        </div>
+        <p class="sendnote"><b>Uploads are slow and can fail silently.</b> Nothing is written until you confirm, and the packet log is the only proof it landed.</p>
+      </div>
+    </section>
+  </div>
+
+  <!-- ================= LOG ================= -->
+  <section class="log">
+    <div class="head">
+      <span class="idx">09</span><span class="mname">Packet log</span>
+      <span class="mnote" id="logCount">4 entries</span>
+      <span class="logtools">
+        <button id="logPause">Pause</button>
+        <button id="logClear">Clear</button>
+      </span>
+    </div>
+    <div class="lrowgrid lhead">
+      <span>Time</span><span>Cmd</span><span>Payload</span><span>Result</span><span>Note</span>
+    </div>
+    <div class="logrows" id="logRows">
+      <div class="lrowgrid lrow2"><span class="t">11:29:45</span><span>0x02</span><span>01 00 00 00 14</span><span class="res">→ 00</span><span class="note">brightness write</span></div>
+      <div class="lrowgrid lrow2"><span class="t">11:29:46</span><span>0x01</span><span>24 00 00 06 00</span><span class="res">→ 00</span><span class="note">frame 1 of 3 · sent</span></div>
+      <div class="lrowgrid lrow2"><span class="t">11:29:47</span><span>0x10</span><span class="dash">—</span><span class="res">→ 00</span><span class="note">query panel state</span></div>
+      <div class="lrowgrid lrow2 fail"><span class="t">11:29:48</span><span>0x10</span><span class="dash">—</span><span class="res">→ <b>NO ACK</b></span><span class="note">panel did not reply</span></div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+
+  /* ---------- log ---------- */
+  var logRows = $('logRows'), logCount = $('logCount');
+  var paused = false;
+  function stamp(){
+    var d = new Date();
+    var p = function(n){ return String(n).padStart(2,'0'); };
+    return p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
+  }
+  function row(t, cmd, payload, res, note){
+    var r = document.createElement('div');
+    r.className = 'lrowgrid lrow2';
+    r.innerHTML = '<span class="t">'+t+'</span><span>'+cmd+'</span><span>'+payload+
+      '</span><span class="res">→ '+res+'</span><span class="note">'+note+'</span>';
+    return r;
+  }
+  function countLog(){
+    var n = logRows.querySelectorAll('.lrow2').length;
+    logCount.textContent = n + (n === 1 ? ' entry' : ' entries');
+  }
+  function addLog(cmd, payload, res, note){
+    if (paused) return;
+    var r = row(stamp(), cmd, payload, res, note);
+    logRows.insertBefore(r, logRows.firstChild);
+    while (logRows.querySelectorAll('.lrow2').length > 5) {
+      logRows.removeChild(logRows.lastChild);
+    }
+    countLog();
+  }
+
+  /* ---------- brightness ---------- */
+  var slider = $('brightSlider'), num = $('brightNum'),
+      fill = $('brightFill'), pv = $('pvBright'), presets = $('presets');
+
+  function paintBright(v){
+    /* track is inset by half the thumb on each side so fill meets the thumb centre */
+    var pct = (8 + (slider.clientWidth - 16) * (v/100)) / slider.clientWidth * 100;
+    fill.style.width = pct + '%';
+    num.textContent = v;
+    pv.textContent = v;
+    Array.prototype.forEach.call(presets.children, function(b){
+      b.classList.toggle('on', Number(b.dataset.v) === v);
+    });
+  }
+  slider.addEventListener('input', function(){ paintBright(Number(slider.value)); });
+  slider.addEventListener('change', function(){
+    var v = Number(slider.value);
+    addLog('0x02', '01 00 00 00 ' + v.toString(16).toUpperCase().padStart(2,'0'), '00',
+           'brightness ' + v);
+  });
+  Array.prototype.forEach.call(presets.children, function(b){
+    b.addEventListener('click', function(){
+      slider.value = b.dataset.v;
+      paintBright(Number(b.dataset.v));
+      addLog('0x02', '01 00 00 00 ' + Number(b.dataset.v).toString(16).toUpperCase().padStart(2,'0'), '00',
+             'brightness ' + b.dataset.v);
+    });
+  });
+  paintBright(70);
+
+  /* ---------- segmented controls ---------- */
+  function seg(el, onPick){
+    el.addEventListener('click', function(e){
+      var b = e.target.closest('button');
+      if (!b) return;
+      Array.prototype.forEach.call(el.children, function(x){ x.classList.remove('on'); });
+      b.classList.add('on');
+      if (onPick) onPick(b.dataset.v);
+    });
+  }
+
+  seg($('rotSeg'));
+
+  var screenOn = true;
+  seg($('scrSeg'), function(v){
+    screenOn = v === 'on';
+    $('screen').classList.toggle('blank', !screenOn);
+  });
+
+  seg($('gyroSeg'), function(v){
+    var gyroOn = v === 'allowed';
+    var note = $('rotNote');
+    note.innerHTML = gyroOn
+      ? '<span class="warnnote">Gyroscope is on — rotation is ignored.</span> Both are set on the panel; the last write wins.'
+      : 'Ignored while the gyroscope is enabled.';
+  });
+
+  /* ---------- labels ---------- */
+  function counter(input, el, max){
+    var update = function(){
+      var n = new TextEncoder().encode(input.value).length;
+      el.textContent = n + ' / ' + max + ' B';
+      el.style.color = n > max ? '#17160F' : '';
+    };
+    input.addEventListener('input', update);
+    update();
+  }
+  counter($('cpuName'), $('cpuCount'), 39);
+  counter($('gpuName'), $('gpuCount'), 39);
+
+  /* ---------- connection ---------- */
+  var serviceRunning = true;
+  function paintService(){
+    if (serviceRunning){
+      $('svcLamp').className = 'lamp';
+      $('svcVal').textContent = 'Running';
+      $('svcNote').textContent = 'pid 2481';
+      $('hdlLamp').className = 'lamp hollow';
+      $('hdlVal').textContent = 'Closed';
+      $('hdlNote').textContent = 'not opened';
+      $('openBtn').disabled = true;
+      $('closeBtn').disabled = true;
+      $('stopBtn').textContent = 'Stop service';
+      $('stopBtn').className = 'btn primary';
+      $('conflict').style.display = '';
+      $('screen').classList.toggle('blank', !screenOn);
+    } else {
+      $('svcLamp').className = 'lamp off';
+      $('svcVal').textContent = 'Stopped';
+      $('svcNote').textContent = '—';
+      $('hdlLamp').className = 'lamp';
+      $('hdlVal').textContent = 'Open';
+      $('hdlNote').textContent = 'by this app';
+      $('openBtn').disabled = true;
+      $('closeBtn').disabled = false;
+      $('stopBtn').textContent = 'Start service';
+      $('stopBtn').className = 'btn';
+      $('conflict').querySelector('h2').textContent = 'Handle held by this app';
+      $('conflict').querySelector('p').textContent = 'Uploads are available. Nothing else can open the device until you close it.';
+      $('conflict').querySelector('code').textContent = 'open(/dev/hidraw3) → fd 7';
+      countLog();
+    }
+    countLog();
+  }
+  $('stopBtn').addEventListener('click', function(){
+    serviceRunning = !serviceRunning;
+    paintService();
+  });
+
+  /* ---------- upload ---------- */
+  var armed = false, sendBtn = $('sendBtn');
+  sendBtn.addEventListener('click', function(){
+    if (sendBtn.disabled) return;
+    if (!armed){
+      armed = true;
+      sendBtn.classList.add('armed');
+      sendBtn.textContent = 'Confirm · 3 frames';
+      setTimeout(function(){
+        if (!armed) return;
+        armed = false;
+        sendBtn.classList.remove('armed');
+        sendBtn.textContent = 'Send to panel';
+      }, 5000);
+      return;
+    }
+    armed = false;
+    sendBtn.classList.remove('armed');
+    sendBtn.textContent = 'Sending · 0 / 450';
+    $('upTag').textContent = 'Sending';
+  });
+
+  /* ---------- log controls ---------- */
+  $('logPause').addEventListener('click', function(){
+    paused = !paused;
+    $('logPause').textContent = paused ? 'Resume' : 'Pause';
+  });
+  $('logClear').addEventListener('click', function(){
+    logRows.innerHTML = '<div class="logempty">log cleared</div>';
+    logCount.textContent = '0 entries';
+  });
+
+})();
+</script>
+</body>
+</html>
