@@ -1,0 +1,13 @@
+[package]
+name = "mystique-usb"
+description = "rusb transport and device lifecycle for the DeepCool MYSTIQUE LCD."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+mystique-protocol.workspace = true
+rusb.workspace = true
+thiserror.workspace = true

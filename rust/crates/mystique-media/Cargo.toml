@@ -1,0 +1,13 @@
+[package]
+name = "mystique-media"
+description = "Image and GIF decoding for MYSTIQUE uploads, shared by the CLI and the control UI."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+image = { version = "0.25", default-features = false, features = ["gif", "jpeg", "png"] }
+mystique-protocol.workspace = true
+thiserror.workspace = true

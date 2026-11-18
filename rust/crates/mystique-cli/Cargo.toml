@@ -1,0 +1,22 @@
+[package]
+name = "mystique-cli"
+description = "The `mystique` command-line driver and protocol mapper."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "mystique"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1.0"
+clap.workspace = true
+mystique-media.workspace = true
+mystique-protocol.workspace = true
+mystique-sensors.workspace = true
+mystique-usb.workspace = true
+serde.workspace = true
+serde_json.workspace = true

@@ -1,0 +1,29 @@
+[package]
+name = "mystique-ui"
+description = "Desktop control panel for the DeepCool MYSTIQUE AIO LCD."
+version.workspace = true
+edition.workspace = true
+# Tauri 2 requires Rust 1.90; the rest of the workspace still targets 1.85.
+rust-version = "1.90"
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "mystique-ui"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+mystique-ipc.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tokio.workspace = true
+
+[features]
+# Embed the static `ui/` directory in the binary. No dev server, no Node toolchain.
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]

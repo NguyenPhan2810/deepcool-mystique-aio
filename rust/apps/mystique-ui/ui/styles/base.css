@@ -1,0 +1,124 @@
+/* Tokens, reset, and the shared primitives. One accent: amber is live state and
+   active selection only. Errors use a separate semantic red. */
+
+:root {
+  --ground: #141311;
+  --panel: #1c1a17;
+  --panel-2: #221f1b;
+  --well: #100f0d;
+  --ink: #f0ece4;
+  --ink-2: #d6d0c6;
+  --label: #a39c90;
+  --label-2: #8f887c;
+  --hair: #2c2925;
+  --hair-2: #38342e;
+  --accent: #d9a05b;
+  --accent-dim: #6f5431;
+  --accent-wash: #2a2118;
+  --error: #d9795f;
+  --error-wash: #2a1b17;
+  --panel-ink: #f4f0e8;
+  --panel-label: #9b9488;
+  --panel-hair: #2a2723;
+  --sans: "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: "Cascadia Mono", Consolas, ui-monospace, "SFMono-Regular", monospace;
+}
+
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html, body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: var(--ground);
+}
+
+body {
+  color: var(--ink);
+  font: 400 13px/1.35 var(--sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+h1, h2, p, figure, figcaption { margin: 0; }
+[hidden] { display: none !important; }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.sk {
+  font: 600 11px/1 var(--sans);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--label);
+  white-space: nowrap;
+}
+
+.mono {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.01em;
+}
+
+.dim { color: var(--label-2); }
+.grow { flex: 1 1 auto; min-width: 0; }
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.lamp {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  display: inline-block;
+  border: 1px solid var(--label-2);
+  background: transparent;
+}
+.lamp.on { background: var(--accent); border-color: var(--accent); }
+
+.tag {
+  font: 600 10px/1 var(--sans);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--label-2);
+  white-space: nowrap;
+}
+
+.err {
+  color: var(--error);
+  font: 400 12px/1.25 var(--sans);
+}
+.err::before {
+  content: "!";
+  display: inline-block;
+  width: 12px;
+  margin-right: 5px;
+  font: 600 11px/1 var(--mono);
+  color: var(--error);
+}
+
+.absline {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 6px;
+  padding: 3px 0 2px;
+  background: var(--panel);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  z-index: 3;
+}
+
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-thumb { background: #3a352e; border: 2px solid var(--ground); }
+::-webkit-scrollbar-track { background: transparent; }

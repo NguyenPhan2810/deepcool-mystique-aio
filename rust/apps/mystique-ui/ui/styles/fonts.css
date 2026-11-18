@@ -1,0 +1,10 @@
+/* Local faces. Inter is SIL Open Font License 1.1 and ships in ui/fonts.
+   Numbers and the log use a local Windows mono stack, never a fetched face. */
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: block;
+  src: url("../fonts/inter-normal.woff2") format("woff2");
+}

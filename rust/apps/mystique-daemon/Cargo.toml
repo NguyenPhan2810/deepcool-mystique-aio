@@ -1,0 +1,26 @@
+[package]
+name = "mystique-daemon"
+description = "Headless owner of the DeepCool MYSTIQUE AIO LCD: telemetry stream and control socket."
+version.workspace = true
+edition.workspace = true
+# `std::fs::File::try_lock` (the single-instance lock) stabilised in 1.89.
+# The rest of the workspace still targets 1.85.
+rust-version = "1.89"
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "mystique-daemon"
+path = "src/main.rs"
+
+[dependencies]
+mystique-ipc.workspace = true
+mystique-media.workspace = true
+mystique-protocol.workspace = true
+mystique-sensors.workspace = true
+mystique-usb.workspace = true
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true

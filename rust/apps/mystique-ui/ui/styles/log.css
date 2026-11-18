@@ -1,0 +1,137 @@
+/* The packet log is a drawer in the unused right margin: closed by default,
+   streaming while closed, exact bytes on expand. */
+
+.logdrawer {
+  position: fixed;
+  top: 48px;
+  right: 22px;
+  bottom: 20px;
+  width: 372px;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--well);
+  border: 1px solid var(--hair-2);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .55);
+  color: var(--ink-2);
+}
+.loghead {
+  flex: none;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--hair);
+}
+.loghead .ttl {
+  font: 600 10px/1 var(--sans);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.loglive { display: flex; align-items: center; gap: 5px; font: 9px/1 var(--mono); color: var(--label); letter-spacing: .06em; }
+.loghead .key { background: var(--panel); border-color: var(--hair-2); color: var(--label); }
+.loghead .key:hover { border-color: var(--label-2); color: var(--ink); }
+.logcols, .logrow {
+  display: grid;
+  grid-template-columns: 58px 36px minmax(0, 1fr) 12px 32px;
+  align-items: center;
+  gap: 5px;
+  padding: 0 10px;
+}
+.logcols {
+  flex: none;
+  height: 21px;
+  border-bottom: 1px solid var(--hair);
+  font: 600 8px/1 var(--sans);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--label-2);
+}
+.logcols span:last-child { text-align: right; }
+.logscroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: #3a352e var(--well);
+}
+.logscroll::-webkit-scrollbar { width: 8px; }
+.logscroll::-webkit-scrollbar-track { background: var(--well); }
+.logscroll::-webkit-scrollbar-thumb { background: #3a352e; border: 2px solid var(--well); }
+#packet-log { list-style: none; margin: 0; padding: 0; }
+.log-item { border-bottom: 1px solid var(--hair); }
+.log-item details > summary { list-style: none; }
+.log-item details > summary::-webkit-details-marker { display: none; }
+.logrow {
+  height: 22px;
+  font: 10px/1 var(--mono);
+  color: var(--ink-2);
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.logrow:hover { background: var(--panel); }
+.logrow .lt { color: var(--label-2); }
+.logrow .lc { color: var(--ink); }
+.logrow .lp { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink-2); }
+.logrow .lp.none { color: var(--label-2); }
+.logrow .la { color: var(--label-2); text-align: center; }
+.logrow .lr { text-align: right; color: var(--ink); }
+.logrow.err .lr, .logrow.err .la { color: var(--error); }
+.log-item[open] .logrow { background: var(--panel); }
+.logdetail {
+  padding: 3px 10px 7px;
+  font: 10px/1.5 var(--mono);
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+.logdetail .lbl {
+  font: 600 8px/1.4 var(--sans);
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--label-2);
+  margin-bottom: 2px;
+}
+.logdetail pre {
+  margin: 0 0 3px;
+  padding: 4px 6px;
+  background: var(--panel);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--ink-2);
+}
+.logdetail pre b { font-weight: 400; color: var(--accent); }
+.logempty {
+  margin: 0;
+  padding: 12px 10px;
+  font: 9px/1 var(--mono);
+  letter-spacing: .1em;
+  color: var(--label-2);
+}
+.logfoot {
+  flex: none;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 0 10px;
+  border-top: 1px solid var(--hair);
+  font: 9px/1 var(--mono);
+  color: var(--label-2);
+}
+.logbtn {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  font: 600 8px/1 var(--sans);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--label-2);
+}
+.logbtn b { font-weight: 600; color: var(--accent); }
+.logbtn:hover { color: var(--ink); }

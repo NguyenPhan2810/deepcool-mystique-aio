@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="dark">
+<title>MYSTIQUE Control</title>
+<link rel="stylesheet" href="styles/fonts.css"><link rel="stylesheet" href="styles/base.css"><link rel="stylesheet" href="styles/layout.css"><link rel="stylesheet" href="styles/controls.css"><link rel="stylesheet" href="styles/preview.css"><link rel="stylesheet" href="styles/log.css">
+<script type="module" src="js/app.js"></script>
+</head>
+<body>
+<header class="statusbar">
+  <span class="brand">MYSTIQUE CONTROL</span>
+  <span class="vsep"></span>
+  <span class="ident-name">MYSTIQUE</span>
+  <span class="ident-vid">3633:0009</span>
+  <span class="ident-vid dim">640 × 480</span>
+  <span class="grow"></span>
+  <div class="indic"><span class="sk">DAEMON</span><span class="lamp" id="daemon-dot"></span><span class="iv" id="daemon-status">Contacting</span></div>
+  <div class="indic"><span class="sk">HANDLE</span><span class="lamp" id="handle-dot"></span><span class="iv" id="conn-device-open">unknown</span></div>
+  <div class="indic"><span class="sk">SERVICE</span><span class="lamp" id="service-dot"></span><span class="iv" id="conn-service-running">unknown</span></div>
+  <div class="indic" id="stream-badge"><span class="sk">STREAM</span><span class="lamp" id="stream-dot"></span><span class="iv" id="stream-word">Idle</span></div>
+  <div class="indic"><span class="sk">FRAMES</span><span class="iv mono" id="stream-frames">0</span></div>
+  <div class="indic"><span class="sk">SOURCE</span><span class="iv mono src" id="stream-source">not started</span></div>
+  <span class="vsep"></span>
+  <button class="logtoggle" type="button" id="btn-log-toggle" aria-expanded="false" aria-controls="log-drawer">
+    <span class="sk">PACKET LOG</span><span class="badge" id="log-badge">0</span>
+  </button>
+</header>
+<main class="page">
+  <header class="devicehead">
+    <div class="crumb">
+      <span class="crumb-a">Device</span><span class="crumb-sep">/</span><span class="crumb-b">MYSTIQUE</span>
+      <span class="crumb-state" id="conn-device-present">unknown</span>
+    </div>
+    <div class="headright">
+      <div class="modebox">
+        <span class="sk">PERSONALIZATION</span>
+        <div class="modeseg" id="mode-seg" role="group" aria-label="Personalization mode">
+          <button type="button" id="mode-monitor-btn" data-mode="monitor" aria-pressed="true">Monitor</button><button type="button" id="mode-media-btn" data-mode="media" aria-pressed="false">Media</button><button type="button" id="mode-recording-btn" data-mode="recording" aria-pressed="false">Recording</button>
+        </div>
+      </div>
+      <details class="session" id="session-details">
+        <summary><span class="sk">SESSION</span></summary>
+        <div class="sessionpanel">
+          <p class="sdetail" id="daemon-detail">Opening the control socket.</p>
+          <div class="srow">
+            <span class="sk">SOCKET</span><span class="mono endpoint" id="daemon-endpoint">\\.\pipe\mystique-control-v1</span>
+            <span class="dim child" id="daemon-child">—</span>
+            <span class="grow"></span><button class="key sm" type="button" id="btn-refresh" title="Read 0x10 now">Status</button>
+          </div>
+          <div class="srow actions">
+            <button class="key" type="button" id="btn-open">Open</button>
+            <button class="key" type="button" id="btn-close">Release</button>
+            <button class="key" type="button" id="btn-stop-service">Stop vendor</button>
+            <button class="key" type="button" id="btn-start-service">Start vendor</button>
+            <button class="key" type="button" id="btn-daemon-retry">Reconnect</button>
+            <button class="key danger" type="button" id="btn-daemon-stop" disabled>Stop daemon</button>
+          </div>
+          <div class="srow">
+            <span class="sk">LAST</span><span class="dim" id="conn-device-info">no device action</span>
+            <span class="sk">ERR</span><b class="dim" id="conn-last-error">none</b>
+            <details class="svcout" id="conn-service-details"><summary>sc.exe</summary><pre id="conn-service-output">no output</pre></details>
+          </div>
+          <div class="srow">
+            <span class="sk">STREAM</span>
+            <button class="key sm" type="button" id="btn-stream-start">Start</button>
+            <button class="key sm" type="button" id="btn-stream-stop">Stop</button>
+            <span class="miss mono" id="stream-missing">MISSING —</span>
+            <span class="errchip" id="stream-error-note" hidden>—</span>
+          </div>
+          <div class="srow"><div class="sitmsg warn" id="daemon-conflict" hidden><b>Two owners</b><span id="daemon-conflict-text"></span></div><div class="sitmsg warn" id="conn-service-warning" hidden><b>Vendor service holds the device</b><span>stop it to open</span></div></div>
+          <p class="sitmsg err" id="conn-error" role="alert" hidden></p>
+          <p class="err" id="stream-error" role="alert" hidden></p>
+          <p class="snote">Not display commands: fan I/O, RGB temperature warning, edge picking.</p>
+        </div>
+      </details>
+    </div>
+  </header>
+  <p id="app-error" class="app-error" role="alert" hidden></p>
+  <section class="body" id="device-body" data-mode="monitor">
+    <aside class="settings" aria-label="Device settings">
+      <section class="group" data-modes="monitor">
+        <div class="gh"><h2>Idle screen</h2><span class="meta">0x02[0]</span></div>
+        <div class="switchrow">
+          <label class="switch small"><input id="idle-screen" type="checkbox" aria-label="Idle screen display"><span class="track" aria-hidden="true"><span class="thumb"></span></span></label>
+          <label class="rowlabel" for="idle-screen">Idle screen display</label>
+          <span class="note-inline">Not screen power</span>
+        </div>
+        <p class="err smallerr" id="idle-error" role="alert" hidden></p>
+      </section>
+      <section class="group" data-modes="monitor">
+        <div class="gh"><h2>Brightness</h2><span class="meta">0x02[4]</span></div>
+        <div class="brirange">
+          <label class="switch small" title="Screen on or off"><input id="screen-toggle" type="checkbox" aria-label="Screen on"><span class="track" aria-hidden="true"><span class="thumb"></span></span></label>
+          <div class="slide"><div class="rail"></div><div class="fill" id="brightness-fill"></div><input id="brightness-slider" type="range" min="0" max="100" step="1" value="70" aria-label="Screen brightness"></div>
+          <div class="brinum"><span id="brightness-value">70</span><i>%</i></div>
+        </div>
+        <div class="presets" role="group" aria-label="Brightness presets">
+          <button class="preset" type="button" id="brightness-preset-0" data-brightness="0">0</button><button class="preset" type="button" id="brightness-preset-25" data-brightness="25">25</button><button class="preset" type="button" id="brightness-preset-50" data-brightness="50">50</button><button class="preset" type="button" id="brightness-preset-75" data-brightness="75">75</button><button class="preset" type="button" id="brightness-preset-100" data-brightness="100">100</button>
+        </div>
+        <div class="line" id="screen-line" hidden><span id="screen-state"></span></div>
+        <p class="err smallerr" id="brightness-error" role="alert" hidden></p>
+      </section>
+      <section class="group" data-modes="monitor">
+        <div class="gh"><h2>Rotation</h2><span class="meta">SRC <span id="conn-rotation-source">unknown</span></span></div>
+        <div class="rotkeys" role="group" aria-label="Screen rotation">
+          <button class="rotkey" type="button" id="rotation-btn-0" data-rotation="0" aria-pressed="true">0°</button><button class="rotkey" type="button" id="rotation-btn-1" data-rotation="1" aria-pressed="false">90°</button><button class="rotkey" type="button" id="rotation-btn-2" data-rotation="2" aria-pressed="false">180°</button><button class="rotkey" type="button" id="rotation-btn-3" data-rotation="3" aria-pressed="false">270°</button>
+        </div>
+        <div class="gyroline"><span class="sk">Gyroscopes allowed</span><label class="switch small"><input id="gyro-toggle" type="checkbox" aria-label="Gyroscopes are allowed"><span class="track" aria-hidden="true"><span class="thumb"></span></span></label></div>
+        <div class="line"><span class="warn" id="rotation-warn" hidden>GYRO ON — ROTATION IGNORED</span></div>
+        <p class="err smallerr" id="rotation-error" role="alert" hidden></p>
+      </section>
+      <section class="group" data-modes="monitor">
+        <div class="gh"><h2>RGB light</h2><span class="meta">0x02[3]</span></div>
+        <div class="switchrow">
+          <label class="switch small"><input id="rgb-sync" type="checkbox" aria-label="RGB light effect sync"><span class="track" aria-hidden="true"><span class="thumb"></span></span></label>
+          <label class="rowlabel" for="rgb-sync">Sync with motherboard</label>
+        </div>
+        <label class="checkrow unwiredrow"><input id="rgb-warning" type="checkbox"><span>Temperature warning</span><span class="unwired">No display command; LED controller.</span></label>
+        <p class="err smallerr" id="rgb-error" role="alert" hidden></p>
+      </section>
+      <section class="group" data-modes="monitor">
+        <div class="gh"><h2>Fan I/O</h2><span class="meta">mapping</span></div>
+        <div class="field"><label for="io-cpu">CPU fan</label><div class="selwrap"><select id="io-cpu"><option>N/A</option><option>AIO Pump</option><option>CPU</option></select></div><span class="unwired">No display command; fan controller.</span></div>
+        <div class="field"><label for="io-pump">Pump fan</label><div class="selwrap"><select id="io-pump"><option>N/A</option><option>AIO Pump</option><option>CPU</option></select></div><span class="unwired">No display command; fan controller.</span></div>
+      </section>
+      <section class="group" data-modes="media">
+        <div class="gh"><h2>Image / GIF</h2><span class="meta">single slot</span></div>
+        <div class="tiles"><button class="tile plus" type="button" id="btn-pick-image" aria-label="Choose an image or GIF">+</button><div class="tile file" id="image-path">No file selected</div></div>
+        <div class="line"><span class="dim" id="media-kind">PNG or GIF</span></div>
+      </section>
+      <section class="group" data-modes="media">
+        <div class="gh"><h2>Image switch</h2><span class="meta">0x07</span></div>
+        <div class="radios" role="group" aria-label="Image switch time"><label><input type="radio" name="media-time" id="media-time-0" value="0" checked><span>3 s</span></label><label><input type="radio" name="media-time" id="media-time-1" value="1"><span>5 s</span></label><label><input type="radio" name="media-time" id="media-time-2" value="2"><span>7 s</span></label></div>
+        <div class="radios" role="group" aria-label="Image switch animation"><label><input type="radio" name="media-animation" id="media-animation-0" value="0" checked><span>Split</span></label><label><input type="radio" name="media-animation" id="media-animation-1" value="1"><span>Scroll</span></label><label><input type="radio" name="media-animation" id="media-animation-2" value="2"><span>Fade</span></label></div>
+        <div class="rowend"><button class="key" type="button" id="btn-media-send">Send timing</button></div>
+        <p class="err smallerr" id="media-error" role="alert" hidden></p>
+      </section>
+      <section class="group" data-modes="media">
+        <div class="gh"><h2>Edge picking</h2><span class="meta">LED</span></div>
+        <label class="checkrow unwiredrow"><input id="media-edge" type="checkbox"><span>Sync RGB with image edge</span><span class="unwired">No display command; LED effect.</span></label>
+      </section>
+      <section class="group" data-modes="media">
+        <div class="gh"><h2>Erase</h2><span class="meta">0x14</span></div>
+        <button class="key danger wide" type="button" id="btn-return-dashboard">Return to dashboard</button>
+        <div class="line warn" id="dashboard-state">Deletes the stored image or GIF. No undo.</div>
+        <div class="confirmbox" id="dashboard-confirm-box" hidden><label class="checkrow"><input id="dashboard-confirm" type="checkbox"><span>Stored content is deleted</span></label><button class="key danger wide" type="button" id="btn-dashboard-erase" disabled>Erase and return</button></div>
+        <div class="rowend"><button class="key" type="button" id="btn-erase-images">Erase stored</button><span class="line mono" id="dashboard-report">last —</span></div>
+        <div class="line mono" id="erase-message">0x14 · empty payload</div>
+        <p class="err smallerr" id="dashboard-error" role="alert" hidden></p>
+        <p class="err smallerr" id="erase-error" role="alert" hidden></p>
+      </section>
+      <section class="group" data-modes="monitor media">
+        <div class="gh"><h2>Labels</h2><span class="meta">ASCII · 39 B</span></div>
+        <div class="lfield"><div class="lhead"><label for="label-cpu">CPU name</label><span class="count" id="cpu-counter"><span class="n" id="cpu-count">2</span> / 39 B</span></div><input id="label-cpu" type="text" maxlength="39" value="--" spellcheck="false" autocomplete="off"><p class="err smallerr" id="cpu-label-error" hidden></p></div>
+        <div class="lfield"><div class="lhead"><label for="label-gpu">GPU name</label><span class="count" id="gpu-counter"><span class="n" id="gpu-count">2</span> / 39 B</span></div><input id="label-gpu" type="text" maxlength="39" value="--" spellcheck="false" autocomplete="off"><p class="err smallerr" id="gpu-label-error" hidden></p></div>
+        <div class="rowend"><button class="key" type="button" id="btn-labels-save">Save labels</button></div>
+        <p class="err smallerr" id="labels-error" role="alert" hidden></p>
+      </section>
+      <section class="group" data-modes="recording">
+        <div class="gh"><h2>Recording</h2><span class="meta">0x05</span></div>
+        <label class="checkrow"><input id="record-freq" type="checkbox" checked><span>CPU frequency graph</span><span class="bit">0x05[0]</span></label>
+        <label class="checkrow"><input id="record-temp" type="checkbox" checked><span>CPU temperature graph</span><span class="bit">0x05[1]</span></label>
+        <div class="line dim">A redraw frame follows each change.</div>
+        <p class="err smallerr" id="recording-error" role="alert" hidden></p>
+      </section>
+    </aside>
+    <section class="stage" aria-label="Panel">
+      <section class="previewplate">
+        <div class="ph"><span class="ttl">Panel preview</span><span class="meta" id="conn-mode">0x10 · not read</span><span class="tag">BELIEF</span></div>
+        <div class="previewstage">
+          <div class="panel" id="preview-screen" data-view="monitor" data-orient="portrait">
+            <div class="ps-monitor">
+              <div class="ps-head"><span class="ps-label" id="preview-label">CPU FREQUENCY</span><span class="ps-style" id="preview-style">NORMAL</span></div>
+              <div class="ps-main"><span id="preview-value">—</span><span class="ps-unit" id="preview-unit">GHz</span></div>
+              <div class="ps-main ps-dual" id="preview-main2" hidden><span class="ps-label2" id="preview-label2">PUMP RPM</span><span id="preview-value2">—</span><span class="ps-unit" id="preview-unit2">RPM</span></div>
+              <div class="ps-aux"><div class="ps-cell" id="preview-cell-1"><b id="preview-v1">—</b><i id="preview-u1">V</i><span id="preview-k1">3.3V</span></div><div class="ps-cell" id="preview-cell-2"><b id="preview-v2">—</b><i id="preview-u2">V</i><span id="preview-k2">5V</span></div><div class="ps-cell" id="preview-cell-3"><b id="preview-v3">—</b><i id="preview-u3">V</i><span id="preview-k3">12V</span></div></div>
+            </div>
+            <div class="ps-media" id="preview-media"><img id="panel-media" alt=""><span id="panel-media-empty">NO MEDIA</span></div>
+            <div class="ps-recording">
+              <div class="rec" id="rec-freq-block"><div class="rech"><span>CPU</span><b id="rec-freq">— GHz</b></div><svg viewBox="0 0 200 70" preserveAspectRatio="none"><polyline id="rec-freq-line" points=""></polyline></svg></div>
+              <div class="rec" id="rec-temp-block"><div class="rech"><span>CPU TEMPERATURE</span><b id="rec-temp">— °C</b></div><svg viewBox="0 0 200 70" preserveAspectRatio="none"><polyline id="rec-temp-line" points=""></polyline></svg></div>
+              <div class="recaxis" id="rec-axis"><span>-30 S</span><span>NOW</span></div>
+            </div>
+            <div class="ps-off">SCREEN OFF</div>
+          </div>
+        </div>
+        <div class="pfoot"><span class="psens" id="preview-cpu"><span>CPU</span><b id="preview-cpu-value">—</b><i>°C</i></span><span class="psens" id="preview-gpu"><span>GPU</span><b id="preview-gpu-value">—</b><i>°C</i></span></div>
+      </section>
+      <section class="areas" data-modes="monitor">
+        <div class="ph"><span class="ttl">Display areas</span><span class="meta">0x04 · [main, style, 0, aux]</span></div>
+        <div class="areasbody">
+          <div class="field"><label for="area-main">Main display area</label><div class="selwrap"><select id="area-main"><option value="0">CPU Frequency</option><option value="1">Time</option><option value="2">Pump Speed</option><option value="3">CPU FanSpeed</option><option value="4">CPU FanSpeed + Pump Speed</option><option value="5">Temperature</option></select></div></div>
+          <div class="field" id="area-style-row"><label for="area-style">Style type</label><div class="selwrap"><select id="area-style"><option value="0">Normal</option><option value="1">Ring</option><option value="2">Stopwatch</option></select></div></div>
+          <div class="field"><label for="area-aux">Auxiliary display area</label><div class="selwrap"><select id="area-aux"><option value="0">Voltage Mode</option><option value="1">System Monitor</option><option value="2">Core Data</option></select></div></div>
+          <div class="rowend"><button class="key" type="button" id="btn-areas-send">Send areas</button></div>
+        </div>
+        <p class="err" id="areas-error" role="alert" hidden></p>
+      </section>
+      <section class="mediacan" data-modes="media">
+        <div class="ph"><span class="ttl">Upload plan</span></div>
+        <div class="mediabody">
+          <div class="planleft">
+            <div class="fitrow"><label for="upload-fit">Fit</label><div class="selwrap"><select id="upload-fit"><option value="cover">Cover — crop to fill</option><option value="contain">Contain — letterbox</option></select></div><button class="key" type="button" id="btn-plan-upload" disabled>Preview</button></div>
+            <div class="plan3"><div><span>FRAMES</span><b id="upload-plan-frames">—</b></div><div><span>BYTES</span><b id="upload-plan-bytes">—</b></div><div><span>CHUNKS</span><b id="upload-plan-chunks">—</b></div></div>
+            <div id="upload-plan" hidden>
+              <div class="prow"><span>Kind</span><b id="upload-plan-kind">—</b></div><div class="prow"><span>Fit</span><b id="upload-plan-fit">—</b></div><div class="prow"><span>Size</span><b id="upload-plan-size">—</b></div><div class="prow"><span>Commands</span><b id="upload-plan-commands">—</b></div><div class="prow"><span>Content id</span><b class="mono" id="upload-plan-content-id">—</b></div>
+              <details id="upload-plan-details"><summary>PACKETS</summary><ol id="upload-plan-command-list"></ol></details>
+            </div>
+            <div class="line" id="upload-confirm-copy">Plan first, then confirm.</div>
+          </div>
+          <div class="planright">
+            <figure id="upload-preview-box" hidden><img id="upload-preview" alt=""><figcaption id="upload-preview-note"></figcaption></figure>
+            <label class="checkrow"><input id="upload-confirm" type="checkbox"><span>Replace the stored image on the panel</span></label>
+            <button class="key primary wide" type="button" id="btn-upload" disabled>Upload</button>
+            <div class="line" id="upload-message"></div>
+            <p class="err smallerr" id="upload-error" role="alert" hidden></p>
+          </div>
+        </div>
+      </section>
+      <details class="raw" id="raw-details">
+        <summary><span class="sk">RAW PACKET</span><span class="rawsum">advanced · arbitrary command bytes</span></summary>
+        <div class="rawbody">
+          <p class="rawwarn" id="raw-warning">Unknown commands can change device state. 0xA1 starts a panel test pattern sustained by traffic. No example bytes are loaded; you supply every byte.</p>
+          <div class="rawform">
+            <label>CMD<input id="raw-command" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="hex"></label>
+            <label>PIPE<select id="raw-pipe"><option value="">choose</option><option value="init">init</option><option value="data">data</option></select></label>
+            <label class="rawpayload">PAYLOAD<input id="raw-payload" type="text" autocomplete="off" spellcheck="false" placeholder="hex bytes"></label>
+            <button class="key" type="button" id="btn-raw-dry">Dry run</button>
+            <button class="key primary" type="button" id="btn-raw-send">Send</button>
+          </div>
+          <div class="rawout">
+            <div class="rawline"><span class="sk">PACKET</span><pre id="raw-packet">—</pre></div>
+            <div class="rawline"><span class="sk">RESULT</span><span id="raw-result">—</span><span class="rawstatus" id="raw-status"></span></div>
+            <pre id="raw-reply"></pre>
+            <p class="err smallerr" id="raw-error" role="alert" hidden></p>
+          </div>
+        </div>
+      </details>
+    </section>
+  </section>
+</main>
+<aside class="logdrawer" id="log-drawer" hidden aria-label="Packet log">
+  <div class="loghead"><span class="ttl">Packet log</span><span class="loglive"><span class="lamp" id="log-live-dot"></span><span id="log-live-word">LIVE</span></span><span class="grow"></span><button class="key sm" type="button" id="btn-log-close">Close</button></div>
+  <div class="logcols"><span>Time</span><span>Cmd</span><span>Payload</span><span></span><span>Res</span></div>
+  <div class="logscroll" id="log-scroll" tabindex="0" role="region" aria-label="Packet log"><ol id="packet-log"></ol><p class="logempty" id="log-empty">NO PACKETS</p></div>
+  <div class="logfoot"><button class="logbtn" type="button" id="btn-log-follow">FOLLOW <b id="log-follow-word">ON</b></button><button class="logbtn" type="button" id="btn-clear-log">CLEAR</button></div>
+</aside>
+</body>
+</html>
