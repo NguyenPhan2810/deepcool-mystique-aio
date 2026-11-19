@@ -120,6 +120,10 @@ fn restrict_dir(dir: &Path) {
 #[cfg(windows)]
 fn restrict(_file: &File) {}
 
+/// Windows has no POSIX directory mode; the per-user directory is already ACL-scoped.
+#[cfg(windows)]
+fn restrict_dir(_dir: &Path) {}
+
 /// `%LOCALAPPDATA%\mystique\daemon.lock`, or the temp directory if that is unset.
 #[cfg(windows)]
 pub fn default_lock_path() -> Result<PathBuf, String> {
