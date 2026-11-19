@@ -35,8 +35,10 @@ pub const CMD_TELEMETRY: u8 = 0x01;
 /// `0x02` — display configuration. Verified: init step 2. The 360 capture sends
 /// `01 01 ROT 00 46`; see [`display_config_payload`].
 pub const CMD_DISPLAY_CONFIG: u8 = 0x02;
-/// `0x0A` — mode switch / heartbeat. The 360 capture always sends
-/// [`MODE_SWITCH_PREFIX`] plus a two-byte counter; see [`mode_switch_payload`].
+/// `0x0A` — the clock. The 360 capture always sends date and time
+/// as `EA 07 <month> <day> <hour> <minute> <second>` about once a second; see
+/// [`time_payload`]. Earlier notes called this a mode switch with a counter because the
+/// capture froze one date and hour.
 /// Requires a non-empty payload: an empty `0x0A` is a silent no-op.
 pub const CMD_MODE_SWITCH: u8 = 0x0A;
 /// `0x0F` — begin image upload. Captured three times, immediately before the frames.
@@ -107,6 +109,34 @@ pub const INIT_STEP_17_PAYLOAD: [u8; 2] = [0x2D, 0x2D];
 pub const MODE_SWITCH_PREFIX: [u8; 5] = [0xEA, 0x07, 0x0B, 0x12, 0x0A];
 /// Full `0x0A` payload length: the prefix plus a two-byte counter.
 pub const MODE_SWITCH_PAYLOAD_LEN: usize = 7;
+
+/// Full `0x0A` payload length: two header bytes plus month, day, hour, minute, second.
+pub const TIME_PAYLOAD_LEN: usize = 7;
+
+/// `0x0A` is the clock. Verified 2026-11-19 by capturing the vendor app at startup: the
+/// payload is `EA 07 <month> <day> <hour> <minute> <second>`, sent about once a second,
+/// and it tracks the wall clock. What earlier notes called a "counter" was the seconds
+/// byte, and the `0B 12 0A` prefix was the capture's own date and hour frozen at that
+/// moment.
+pub const TIME_HEADER: [u8; 2] = [0xEA, 0x07];
+
+pub fn time_payload(
+    month: u8,
+    day: u8,
+    hour: u8,
+    minute: u8,
+    second: u8,
+) -> [u8; TIME_PAYLOAD_LEN] {
+    [
+        TIME_HEADER[0],
+        TIME_HEADER[1],
+        month,
+        day,
+        hour,
+        minute,
+        second,
+    ]
+}
 
 /// Builds the captured `0x0A` payload.
 ///
@@ -1095,6 +1125,17 @@ mod tests {
             display_config_payload(Rotation::new(2).unwrap()),
             [0x01, 0x01, 0x02, 0x00, 0x46]
         );
+    }
+
+    #[test]
+    fn the_clock_payload_carries_the_vendor_date_and_time() {
+        // re/captures/usbpcap-time-sync.pcap: 2026-11-19 10:11:46.
+        assert_eq!(
+            time_payload(11, 19, 10, 11, 46),
+            [0xEA, 0x07, 0x0B, 0x13, 0x0A, 0x0B, 0x2E]
+        );
+        assert_eq!(time_payload(1, 2, 3, 4, 5).len(), TIME_PAYLOAD_LEN);
+        assert_eq!(&time_payload(1, 2, 3, 4, 5)[..2], &TIME_HEADER);
     }
 
     #[test]

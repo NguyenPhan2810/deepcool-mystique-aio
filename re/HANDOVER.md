@@ -45,7 +45,7 @@ Every command byte, from captures and hardware tests. Full detail in `16`–`20`
 | `0x06` | accepted, no visible effect |
 | `0x07` | `[switch time, switch animation]` |
 | `0x08` | upload commit; no visible effect otherwise |
-| `0x0A` | heartbeat `EA 07 0B 12 0A <be16 counter>` |
+| `0x0A` | **clock**: `EA 07 <month> <day> <hour> <minute> <second>`, sent about once a second; it was previously misread as a heartbeat with a counter |
 | `0x0B`–`0x0E`, `0x13` | accepted, no visible effect |
 | `0x0F` | begin image upload |
 | `0x10` | status: rotation, mode |

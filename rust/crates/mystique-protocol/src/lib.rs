@@ -34,8 +34,9 @@ pub mod telemetry;
 pub mod upload;
 
 pub use commands::{
-    label_payload, mode_switch_payload, Command, CommandInfo, Evidence, ObservedCommand, COMMANDS,
-    LABEL_MAX_LEN, MODE_SWITCH_PREFIX, OBSERVED_COMMANDS,
+    label_payload, mode_switch_payload, time_payload, Command, CommandInfo, Evidence,
+    ObservedCommand, COMMANDS, LABEL_MAX_LEN, MODE_SWITCH_PREFIX, OBSERVED_COMMANDS, TIME_HEADER,
+    TIME_PAYLOAD_LEN,
 };
 pub use dcl::{
     build_header as build_dcld_header, ContentId, DCLD_HEADER_LEN, DCLD_KIND_ANIMATED,

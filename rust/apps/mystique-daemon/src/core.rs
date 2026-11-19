@@ -74,6 +74,9 @@ pub struct Core {
     service: ServiceSnapshot,
     next_tick: Instant,
     next_retry: Instant,
+    /// When the next `0x0A` clock payload is due. Independent of the stream: the panel's
+    /// clock must keep correct even when telemetry is stopped.
+    next_clock: Instant,
     attempt: u32,
 }
 
@@ -106,6 +109,7 @@ impl Core {
             service,
             next_tick: now,
             next_retry: now,
+            next_clock: now,
             attempt: 0,
         }
     }
@@ -177,6 +181,12 @@ impl Core {
         if self.panel.is_none() && self.auto_reconnect {
             deadline = Some(self.next_retry);
         }
+        if self.panel.is_some() {
+            deadline = Some(match deadline {
+                Some(current) => current.min(self.next_clock),
+                None => self.next_clock,
+            });
+        }
         if self.panel.is_some() && self.stream.running() {
             deadline = Some(match deadline {
                 Some(current) => current.min(self.next_tick),
@@ -193,10 +203,32 @@ impl Core {
         if self.panel.is_none() && self.auto_reconnect && now >= self.next_retry {
             self.attempt_acquire(now, &mut events);
         }
+        if self.panel.is_some() && now >= self.next_clock {
+            self.sync_clock(now);
+        }
         if self.panel.is_some() && self.stream.running() && now >= self.next_tick {
             self.tick_telemetry(now, &mut events);
         }
         events
+    }
+
+    /// Sends the panel's clock. `0x0A` is not a heartbeat: it carries the local date and
+    /// time, and the vendor app sends it about once a second. A failure here is silent —
+    /// a wrong clock is annoying, a broken stream is not worth it.
+    fn sync_clock(&mut self, now: Instant) {
+        let Some(panel) = self.panel.as_mut() else {
+            return;
+        };
+        let stamp = local_stamp();
+        let payload = mystique_protocol::time_payload(
+            stamp.month,
+            stamp.day,
+            stamp.hour,
+            stamp.minute,
+            stamp.second,
+        );
+        let _ = panel.send(mystique_protocol::Command::ModeSwitch, &payload);
+        self.next_clock = now + Duration::from_secs(1);
     }
 
     fn attempt_acquire(&mut self, now: Instant, events: &mut Vec<Event>) {
@@ -342,6 +374,28 @@ pub fn advance(deadline: Instant, now: Instant, interval: Duration) -> Instant {
     match deadline.checked_add(interval) {
         Some(next) if next > now => next,
         _ => now.checked_add(interval).unwrap_or(now),
+    }
+}
+
+/// The local wall clock, as the five bytes `0x0A` carries. Local, not UTC: the vendor
+/// app sends local time and the panel draws it verbatim.
+struct LocalStamp {
+    month: u8,
+    day: u8,
+    hour: u8,
+    minute: u8,
+    second: u8,
+}
+
+fn local_stamp() -> LocalStamp {
+    use chrono::{Datelike, Local, Timelike};
+    let now = Local::now();
+    LocalStamp {
+        month: now.month() as u8,
+        day: now.day() as u8,
+        hour: now.hour() as u8,
+        minute: now.minute() as u8,
+        second: now.second() as u8,
     }
 }
 

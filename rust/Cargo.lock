@@ -2123,6 +2123,7 @@ dependencies = [
 name = "mystique-daemon"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "clap",
  "mystique-ipc",
  "mystique-media",

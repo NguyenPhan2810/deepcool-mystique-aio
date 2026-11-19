@@ -15,6 +15,7 @@ path = "src/main.rs"
 
 [dependencies]
 mystique-ipc.workspace = true
+chrono.workspace = true
 mystique-media.workspace = true
 mystique-protocol.workspace = true
 mystique-sensors.workspace = true
