@@ -16,6 +16,7 @@ mod daemon;
 mod error;
 mod events;
 mod service;
+mod startup;
 
 use app::AppState;
 use daemon::{Launcher, SpawnRecord};
@@ -42,6 +43,7 @@ fn main() {
         parts.notices,
     );
     let boot = state.clone();
+    let start_hidden = std::env::args().any(|argument| argument == "--minimized");
 
     let built = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -61,6 +63,14 @@ fn main() {
             );
 
             build_tray(app)?;
+
+            // The window is created hidden so a `--minimized` launch never flashes it.
+            // A normal launch shows it, exactly as before.
+            if !start_hidden {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                }
+            }
 
             // Starting the daemon is a blocking probe, so it never runs on the UI thread
             // or inside this hook. The Connection section shows "Contacting the daemon"
@@ -109,6 +119,8 @@ fn main() {
             commands::telemetry::stop_telemetry,
             commands::telemetry::set_stream_rate,
             commands::telemetry::telemetry_status,
+            commands::startup::startup_get,
+            commands::startup::startup_set,
             commands::upload::plan_upload,
             commands::upload::upload_image,
             commands::upload::upload_gif,

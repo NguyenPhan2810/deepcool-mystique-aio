@@ -325,6 +325,9 @@ Session disclosure (closed by default; `details#session-details`):
   `stream-achieved`
 - `stream-sample`, `stream-transfer`, `stream-max` (milliseconds, one decimal)
 - `stream-missing`, `stream-error-note`, `stream-error`
+- `startup-enabled`, `startup-minimized` (switches), `startup-error` — write the OS
+  start-with-system entry; the entry is read back after every change, so removing it by
+  hand is reflected next time the sheet opens
 - `conn-error` (inline error)
 - `document.documentElement.dataset.daemon` carries the health code
 
@@ -561,10 +564,19 @@ real named pipe (created by the test) so the pipe name and presence probe cannot
 - Closing the window **does not stop the daemon**. A daemon spawned by the UI is left
   running with the panel held and the stream up; the next window connects to it. Use
   **Stop daemon** to release the panel and stop telemetry deliberately.
-- **Nothing starts at boot.** The UI has no startup entry and the daemon is not a Windows
-  service; `MystiqueService` is `Automatic`, so after a reboot the vendor stack owns the
-  panel again. Making this survive a reboot needs a startup entry plus the vendor service
-  set to `Manual` (or a real service wrapper for the daemon, which does not exist yet).
+- **Start with system** is a switch in the session sheet. Windows writes
+  `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\MystiqueControl` (no elevation, and
+  it appears in Task Manager's Startup tab); Linux writes
+  `~/.config/autostart/mystique-control.desktop`. **Minimized to tray** appends
+  `--minimized` to that entry, and the window is created hidden so a login launch never
+  flashes it. The OS entry is read back after every change, so editing it outside the app
+  is reflected the next time the sheet opens.
+- **The vendor service is not the daemon.** The status-bar lamp labelled `VENDOR` tracks
+  `MystiqueService`; `Stopped` is the healthy state while our daemon owns the device. The
+  lamp used to read `SERVICE`, which read like our own service was down.
+- **Nothing else starts at boot.** `MystiqueService` is `Automatic`, so after a reboot the
+  vendor stack takes the panel unless it is set to `Manual`; the start-with-system toggle
+  only starts our window, which then needs the device free.
 - The request timeout is 10 seconds. A live `status` read on a wedged panel is the case it
   exists for; the client drops the link and reconnects rather than waiting forever.
 - The daemon still implements `set_stream_rate`, but the UI no longer exposes it. The

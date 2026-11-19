@@ -1,7 +1,7 @@
 // Event wiring for the device page. Every control calls the real Tauri command;
 // failures stay inline in the group that caused them.
 
-import { runCommand } from './bridge.js';
+import { readCommand, runCommand } from './bridge.js';
 import { checkedValue, el, setChecked, setDisabled, setHidden, setText } from './dom.js';
 import {
   applyBrightness,
@@ -323,6 +323,38 @@ function bindErase() {
   });
 }
 
+// Startup toggles live in the session sheet. The OS entry is the source of truth: the
+// app reads it back after every change, so removing it by hand is reflected here.
+async function bindStartup() {
+  const enabled = el('startup-enabled');
+  const minimized = el('startup-minimized');
+  if (!enabled || !minimized) return;
+
+  const paint = (state) => {
+    if (!state) return;
+    enabled.checked = Boolean(state.enabled);
+    minimized.checked = Boolean(state.minimized);
+    minimized.disabled = !state.enabled;
+  };
+
+  paint(await readCommand('startup_get'));
+
+  const send = async () => {
+    const state = await runCommand(
+      'startup_set',
+      { enabled: enabled.checked, minimized: minimized.checked },
+      'startup',
+    );
+    paint(state);
+  };
+
+  enabled.addEventListener('change', () => {
+    minimized.disabled = !enabled.checked;
+    void send();
+  });
+  minimized.addEventListener('change', () => { void send(); });
+}
+
 export function bindSections() {
   bindConnection();
   bindBrightness();
@@ -330,6 +362,7 @@ export function bindSections() {
   bindGyro();
   bindIdleScreen();
   bindRgbMode();
+  bindStartup();
   bindFanIo();
   bindRecording();
   bindAreas();

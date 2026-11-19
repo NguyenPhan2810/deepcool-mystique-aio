@@ -17,6 +17,7 @@
         "minWidth": 960,
         "minHeight": 640,
         "resizable": true,
+        "visible": false,
         "theme": "Dark",
         "backgroundColor": "#0f1419"
       }

@@ -16,7 +16,7 @@
   <span class="grow"></span>
   <div class="indic"><span class="sk">DAEMON</span><span class="lamp" id="daemon-dot"></span><span class="iv" id="daemon-status">Contacting</span></div>
   <div class="indic"><span class="sk">HANDLE</span><span class="lamp" id="handle-dot"></span><span class="iv" id="conn-device-open">unknown</span></div>
-  <div class="indic"><span class="sk">SERVICE</span><span class="lamp" id="service-dot"></span><span class="iv" id="conn-service-running">unknown</span></div>
+  <div class="indic"><span class="sk" title="MystiqueService — the vendor driver">VENDOR</span><span class="lamp" id="service-dot"></span><span class="iv" id="conn-service-running">unknown</span></div>
   <div class="indic" id="stream-badge"><span class="sk">STREAM</span><span class="lamp" id="stream-dot"></span><span class="iv" id="stream-word">—</span></div>
   <span class="vsep"></span>
   <button class="logtoggle" type="button" id="btn-log-toggle" aria-expanded="false" aria-controls="log-drawer">
@@ -83,6 +83,14 @@
           <div class="srow"><div class="sitmsg warn" id="daemon-conflict" hidden><b>Two owners</b><span id="daemon-conflict-text"></span></div><div class="sitmsg warn" id="conn-service-warning" hidden><b>Vendor service holds the device</b><span>stop it to open</span></div></div>
           <p class="sitmsg err" id="conn-error" role="alert" hidden></p>
           <p class="err" id="stream-error" role="alert" hidden></p>
+          <div class="srow">
+            <span class="sk">STARTUP</span>
+            <label class="switch small"><input id="startup-enabled" type="checkbox" aria-label="Start with system"><span class="track" aria-hidden="true"><span class="thumb"></span></span></label>
+            <span class="rowlabel">Start with system</span>
+            <label class="switch small"><input id="startup-minimized" type="checkbox" aria-label="Start minimized to tray"><span class="track" aria-hidden="true"><span class="thumb"></span></span></label>
+            <span class="rowlabel">Minimized to tray</span>
+          </div>
+          <p class="err" id="startup-error" role="alert" hidden></p>
         </div>
       </details>
     </div>
