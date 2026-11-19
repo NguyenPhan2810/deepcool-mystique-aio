@@ -97,7 +97,10 @@ export function applySettings(settings) {
 
   setChecked('gyro-toggle', Boolean(settings.gyro));
   setChecked('idle-screen', settings.idle_screen !== false);
-  setChecked('rgb-sync', Boolean(settings.rgb_sync));
+  const rgbMode = settings.rgb_mode || 'motherboard';
+  for (const mode of ['motherboard', 'temperature', 'edge']) {
+    setChecked('rgb-mode-' + mode, rgbMode === mode);
+  }
   setChecked('record-freq', settings.record_cpu_clock !== false);
   setChecked('record-temp', settings.record_cpu_temp !== false);
 

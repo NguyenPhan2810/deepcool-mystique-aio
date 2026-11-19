@@ -57,11 +57,11 @@
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: thin;
-  scrollbar-color: #3a352e var(--well);
+  scrollbar-color: #333d47 var(--well);
 }
 .logscroll::-webkit-scrollbar { width: 8px; }
 .logscroll::-webkit-scrollbar-track { background: var(--well); }
-.logscroll::-webkit-scrollbar-thumb { background: #3a352e; border: 2px solid var(--well); }
+.logscroll::-webkit-scrollbar-thumb { background: #333d47; border: 2px solid var(--well); }
 #packet-log { list-style: none; margin: 0; padding: 0; }
 .log-item { border-bottom: 1px solid var(--hair); }
 .log-item details > summary { list-style: none; }

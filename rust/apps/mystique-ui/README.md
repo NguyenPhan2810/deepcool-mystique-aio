@@ -66,8 +66,8 @@ One process, one owner. That process is the daemon. This window:
 - opens no USB handle and sends no packet;
 - starts no telemetry thread and takes no host sample;
 - asks the daemon to open, release, configure or stream;
-- shows the daemon, handle, vendor service and stream as status-bar indicators, with the
-  five rate presets beside the stream lamp;
+- shows the daemon, handle, vendor service and stream as status-bar indicators; the
+  stream word is the counted frame rate, and the bar carries no rate control;
 - keeps the endpoint, health sentence, session controls and stream counters behind a
   closed **Session** disclosure under the device header.
 
@@ -114,16 +114,18 @@ from `mystique-ipc`.
 | `set_fan_io` | `set_fan_io` | `{ cpu, pump }`: `cpu`\|`pump`\|`none`; host routing for the two RPM dials, one redraw frame, no setting packet |
 | `set_idle_screen` | `set_idle_screen` | `{ enabled }`; `0x02[0]`, not screen power |
 | `set_rgb_sync` | `set_rgb_sync` | `{ enabled }`; `0x02[3]` |
+| `set_rgb_mode` | `set_rgb_mode` | `{ mode }`: `motherboard`\|`temperature`\|`edge`; interlocked, one lighting source |
 | `set_recording` | `set_recording` | `{ cpu_clock, cpu_temp }`; `0x05`, then one redraw frame |
 | `set_screen_power` | `set_screen` | UI `{ lit }` → daemon `{ enabled }`; off is brightness 0 |
 | `erase_images` | `erase_images` | `0x14`, destructive, no read-back |
 | `set_areas` | `set_areas` | `{ main, style, aux }` |
 | `set_media_timing` | `set_media_timing` | `{ time, animation }` |
 | `set_labels` | `set_labels` | `{ cpu, gpu }`, nulls allowed |
+| `detected_labels` | `detected_labels` | `{}`; `{ cpu: [...], gpu: [...] }` for the label pickers, empty lists when detection finds nothing |
 | `raw_packet` | `raw_packet` | `{ command, payload, pipe, dry_run }`; daemon builds the 48-byte packet |
 | `start_telemetry` | `start_stream` | rename only |
 | `stop_telemetry` | `stop_stream` | rename only |
-| `set_stream_rate` | `set_stream_rate` | `{ hz }`, `1..=120`; the UI offers 1/5/10/20/30 |
+| `set_stream_rate` | `set_stream_rate` | `{ hz }`, `1..=120`; still implemented by the daemon, no longer exposed by the UI |
 | `telemetry_status` | `device_state` | projects the `telemetry` extension |
 | `plan_upload` | `plan_upload` | `{ path, fit }`; caches the plan in the daemon |
 | `upload_image` | `upload_image` | `{ path, fit }`; stops the stream first |
@@ -137,10 +139,10 @@ from `mystique-ipc`.
 `set_screen_power` and `start_telemetry`/`stop_telemetry` keep their names on this side so
 the frontend did not have to change; the renames live in the command bodies.
 
-`set_stream_rate` changes the daemon's host-side period. It sends nothing to the panel,
-starts and stops nothing, and returns the same `TelemetryStatus` as the other stream
-commands. The five presets are 1/5/10/20/30 Hz; the active one is the accent and a failed
-change appears in the existing `stream-error` node. Opening the session sheet takes one
+`set_stream_rate` changes the daemon's host-side period. It still exists in the daemon and
+still sends nothing to the panel, but the UI no longer exposes it: the period is whatever
+the daemon was started with. The status bar keeps the counted rate (`30.1 HZ`) and the
+session sheet keeps the counters and the achieved row. Opening the session sheet takes one
 status snapshot; the sheet does not poll, so inspecting it cannot perturb the timing.
 
 `set_mode` sends `0x03` with `1` Monitor, `2` Media or `3` Recording. The mode buttons
@@ -289,8 +291,8 @@ arrives, which is why the auxiliary selector looked dead when the stream was off
 
 The behaviour lives in `ui/js/` and is bound by id only, except for the documented
 `data-*` attributes: `data-mode` and `data-modes` on the page and groups, `data-view` and
-`data-orient` on the preview, `data-brightness` on the presets, and `data-rotation` on the
-rotation keys. The designer can replace `index.html` and the stylesheets wholesale as long
+`data-orient` on the preview, `data-brightness` on the presets, `data-rotation` on the
+rotation keys, and `data-pick` on the label selects. The designer can replace `index.html` and the stylesheets wholesale as long
 as these ids and attributes stay.
 
 Status bar:
@@ -300,12 +302,12 @@ Status bar:
 - `service-dot`, `conn-service-running`
 - `stream-badge`, `stream-dot`, `stream-word`
   - `stream-word` shows the **counted** frame rate (`1.0 HZ`, `30.1 HZ`), not the word
-    "Live", because the panel's numbers change once a second and a working rate change
-    otherwise looks like no change. It reads `IDLE` when stopped, `—` before the first
+    "Live", because the panel's numbers change once a second and a working stream
+    otherwise looks static. It reads `IDLE` when stopped, `—` before the first
     one-second window closes.
-- `stream-rate` (group), `stream-rate-1`, `stream-rate-5`, `stream-rate-10`,
-  `stream-rate-20`, `stream-rate-30` (each carries `data-hz` and `aria-pressed`)
 - `btn-log-toggle`, `log-badge`
+
+There is no rate control in the status bar; `set_stream_rate` stays a daemon-side command.
 
 Session disclosure (closed by default; `details#session-details`):
 
@@ -362,7 +364,10 @@ Rotation:
 
 RGB light:
 
-- `rgb-sync` (wired), `rgb-warning` (unwired, interactive), `rgb-error`
+- `rgb-mode-motherboard`, `rgb-mode-temperature`, `rgb-mode-edge` — one radio group, `rgb-error`
+- The three choices are **interlocked**, exactly like the vendor app: one active at a time.
+  Motherboard writes `0x02[3] = 00`; the other two write `01` (the panel's own optical
+  effect) and differ only in what the panel does in Monitor versus Media mode.
 
 Fan I/O:
 
@@ -387,9 +392,19 @@ Recording:
 Labels:
 
 - `label-cpu`, `label-gpu`, `cpu-counter`, `gpu-counter`, `cpu-count`, `gpu-count`
+- `cpu-pick-wrap`, `gpu-pick-wrap`, `label-cpu-pick`, `label-gpu-pick` (hidden until
+  `detected_labels` returns names; both selects carry `data-pick="label"`)
 - `cpu-label-error`, `gpu-label-error`, `labels-error`
 - No Save button: typing commits 500 ms after the last keystroke; blur and Enter commit
   immediately. A label change writes `0x15` and `0x16`.
+- `detected_labels` answers `{ "cpu": [...], "gpu": [...] }`. The pick select is a shortcut,
+  never a second value. Its options are the disabled prompt `Detected`, every detected
+  name in order (the GPU list lists every adapter), then `Custom`.
+- A detected pick fills the input, cancels the pending debounce and commits `set_labels`
+  at once. `Custom` keeps the current text and focuses the input without committing. In
+  both cases the select returns to its prompt, so the input stays the only place the value
+  is shown. If detection fails or returns no names, the select stays hidden and typing
+  behaves exactly as before.
 
 Image:
 
@@ -406,7 +421,6 @@ Image:
 - `btn-return-dashboard`, `dashboard-confirm-box`, `dashboard-confirm`,
   `btn-dashboard-erase`, `dashboard-state`, `dashboard-report`, `dashboard-error`
 - `btn-erase-images`, `erase-message`, `erase-error`
-- `media-edge` (unwired, interactive)
 
 Raw packet:
 
@@ -421,9 +435,8 @@ Log:
 - `log-scroll`, `packet-log` (the `<ol>`), `log-empty`, `btn-clear-log`,
   `btn-log-follow`, `log-follow-word`
 
-Unwired controls stay **visible and interactive**; each carries one short inline phrase
-naming the subsystem that owns it (`rgb-warning`, `media-edge`). There is no `NO CMD`
-badge anywhere.
+There are no dead toggles left: the three lighting choices are one interlocked control, and
+every other control writes a real command.
 
 Global:
 
@@ -482,8 +495,9 @@ rust/apps/mystique-ui/
       raw.js                 hex parsing, dry run, send, log the exact record
       state.js               DTO-to-control mapping and shared state
       sections.js            idle, brightness, rotation, gyro, RGB, recording, areas,
-                             media, labels, erase
-      telemetry.js           stream controls, rate presets, counters
+                             media, erase
+      labels.js              label typing, detected-name select, immediate pick commit
+      telemetry.js           stream controls, counted rate, counters
       image.js               choose, plan, preview, confirm, upload
 ```
 
@@ -527,8 +541,8 @@ real named pipe (created by the test) so the pipe name and presence probe cannot
   panel.
 - Every vendor control is present. The wired set is idle screen, brightness, rotation,
   gyro, RGB sync, labels, display areas, media timing, recording options, upload and erase.
-  The unwired set is the RGB temperature warning and Image/GIF edge picking; each stays
-  interactive with one inline phrase naming the LED subsystem. No `NO CMD` badge is used.
+  The three lighting choices are one interlocked radio group (Motherboard / Temperature /
+  Image edge), matching the vendor app. No `NO CMD` badge is used.
   Fan I/O is **wired**: `set_fan_io` routes either sensor to either RPM dial on the host.
 - The panel preview is a belief: it is built from the staged display-area selects, the
   last `SettingsState` and the last `FrameValues`. Pump and fan RPM come from
@@ -536,15 +550,27 @@ real named pipe (created by the test) so the pipe name and presence probe cannot
   and 24..25; the three voltage rails are `—` because no byte for them is known. Nothing in
   the preview is presented as a device read. The preview footer shows CPU/GPU temperature
   only when the panel itself is not drawing that value, so no live number appears twice.
+  In the CPU FanSpeed + Pump Speed layout the fan number is 52 px and the pump number
+  48 px, so neither dial reads as a footnote.
+- **The window hides to the tray.** The X button does not exit: `CloseRequested` is
+  prevented and the window is hidden, leaving the tray icon, the client and the daemon
+  running. The tray menu is **Show control panel / Stop daemon / Quit**, and a left click
+  on the icon reopens the window. `Quit` is the only exit and stops nothing; `Stop daemon`
+  asks the daemon to shut down over the socket, which blanks the panel and releases the
+  device, exactly like the session-sheet button.
 - Closing the window **does not stop the daemon**. A daemon spawned by the UI is left
   running with the panel held and the stream up; the next window connects to it. Use
   **Stop daemon** to release the panel and stop telemetry deliberately.
+- **Nothing starts at boot.** The UI has no startup entry and the daemon is not a Windows
+  service; `MystiqueService` is `Automatic`, so after a reboot the vendor stack owns the
+  panel again. Making this survive a reboot needs a startup entry plus the vendor service
+  set to `Manual` (or a real service wrapper for the daemon, which does not exist yet).
 - The request timeout is 10 seconds. A live `status` read on a wedged panel is the case it
   exists for; the client drops the link and reconnects rather than waiting forever.
-- The rate control changes the daemon's host period, not the panel. The UI marks the
-  nearest preset within 5% of the requested period and shows the achieved rate in the
-  session sheet only when it differs by more than 5%; 30 Hz is the measured Windows
-  ceiling, not a USB or panel limit.
+- The daemon still implements `set_stream_rate`, but the UI no longer exposes it. The
+  status bar counts the rate it is actually achieving, and the session sheet shows the
+  achieved rate only when it differs from the requested period by more than 5%; 30 Hz is
+  the measured Windows ceiling, not a USB or panel limit.
 - Upload chunks are not shown individually; the summary plus the command, header and
   terminator packets are. Telemetry frames are counted in the status bar and are not
   written to the packet log, which would otherwise gain a row every second.

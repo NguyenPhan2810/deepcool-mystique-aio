@@ -18,12 +18,15 @@ pub mod cmd {
     pub const SET_SCREEN: &str = "set_screen";
     pub const SET_IDLE_SCREEN: &str = "set_idle_screen";
     pub const SET_RGB_SYNC: &str = "set_rgb_sync";
+    pub const SET_RGB_MODE: &str = "set_rgb_mode";
     pub const SET_RECORDING: &str = "set_recording";
     pub const SET_MODE: &str = "set_mode";
     pub const SET_FAN_IO: &str = "set_fan_io";
     pub const SET_AREAS: &str = "set_areas";
     pub const SET_MEDIA_TIMING: &str = "set_media_timing";
     pub const SET_LABELS: &str = "set_labels";
+    /// The CPU and GPU names detected on the host, for the label pickers. No arguments.
+    pub const DETECTED_LABELS: &str = "detected_labels";
     pub const RAW_PACKET: &str = "raw_packet";
     /// `0x14` erase. The Tauri app's own command name; there is no rename here.
     pub const ERASE_IMAGES: &str = "erase_images";
@@ -53,12 +56,14 @@ pub mod cmd {
         SET_SCREEN,
         SET_IDLE_SCREEN,
         SET_RGB_SYNC,
+        SET_RGB_MODE,
         SET_RECORDING,
         SET_MODE,
         SET_FAN_IO,
         SET_AREAS,
         SET_MEDIA_TIMING,
         SET_LABELS,
+        DETECTED_LABELS,
         RAW_PACKET,
         ERASE_IMAGES,
         PLAN_UPLOAD,
@@ -164,6 +169,13 @@ pub mod args {
         pub pump: String,
     }
 
+    /// Used by `set_rgb_mode`: `motherboard`, `temperature` or `edge`. Only one lighting
+    /// source can be active; the vendor app interlocks the same three.
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    pub struct RgbMode {
+        pub mode: String,
+    }
+
     /// `0x05`: the two recording graph options.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
     pub struct Recording {
@@ -256,6 +268,7 @@ mod tests {
         assert!(cmd::is_known(cmd::SET_IDLE_SCREEN));
         assert!(cmd::is_known(cmd::SET_RGB_SYNC));
         assert!(cmd::is_known(cmd::SET_RECORDING));
+        assert!(cmd::is_known(cmd::DETECTED_LABELS));
         assert!(cmd::is_known(cmd::RAW_PACKET));
         assert!(!cmd::is_known("set_screen_power"));
         assert!(!cmd::is_known(""));

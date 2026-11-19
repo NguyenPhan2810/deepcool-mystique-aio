@@ -9,6 +9,10 @@
 //! Every handler returns a [`Response`] rather than a `Result`, so one unknown command
 //! or bad argument can never take the connection down. A device fault additionally
 //! drops the handle and schedules a reconnect; a range error does not.
+//!
+//! `detected_labels` is the one command not here: it is a blocking host probe with no
+//! device session, answered by the connection handler in `client.rs` so it cannot stall
+//! the telemetry loop.
 
 mod raw;
 mod settings;
@@ -42,6 +46,7 @@ impl Core {
             cmd::SET_SCREEN => self.command_set_screen(request, now),
             cmd::SET_IDLE_SCREEN => self.command_set_idle_screen(request, now),
             cmd::SET_RGB_SYNC => self.command_set_rgb_sync(request, now),
+            cmd::SET_RGB_MODE => self.command_set_rgb_mode(request, now),
             cmd::SET_RECORDING => self.command_set_recording(request, now),
             cmd::SET_MODE => self.command_set_mode(request, now),
             cmd::SET_FAN_IO => self.command_set_fan_io(request, now),
@@ -58,6 +63,11 @@ impl Core {
             cmd::SET_STREAM_RATE => self.command_set_stream_rate(request, now),
             other => failed(request, unknown_command(other)),
         };
+        // A settings command that succeeded changed the session; write the whole file.
+        // A failed command changed nothing, and the device error is already the answer.
+        if response.ok && crate::settings_file::persists(&request.cmd) {
+            self.persist_settings();
+        }
         (response, vec![self.state_event()])
     }
 

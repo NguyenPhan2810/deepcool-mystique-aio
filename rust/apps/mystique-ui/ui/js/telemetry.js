@@ -1,5 +1,5 @@
 // Live stream counters. The daemon owns the loop and the timing numbers; this module
-// paints the status-bar rate control and the session-sheet counters.
+// paints the counted status-bar rate and the session-sheet counters.
 
 import { readCommand, runCommand } from './bridge.js';
 import {
@@ -9,13 +9,10 @@ import {
   setDisabled,
   setDot,
   setHidden,
-  setPressed,
   setText,
 } from './dom.js';
 import { state } from './state.js';
 import { pushFrame, renderPreview } from './preview.js';
-
-const RATES = [1, 5, 10, 20, 30];
 
 let baseline = 0;
 let seen = 0;
@@ -57,10 +54,9 @@ function paintError(status) {
 }
 
 // The status bar shows the rate the daemon is actually achieving, counted over a
-// one-second window. Without it the presets are silent: the panel's numbers change once
-// per second whatever the frame rate, so a working change looks like no change at all.
-// Counting frames beats averaging gaps — gap averages are biased high by bursty
-// scheduling, a count is not.
+// one-second window. The panel's numbers change once per second whatever the frame rate,
+// so a counted rate is the only honest progress signal. Counting frames beats averaging
+// gaps — gap averages are biased high by bursty scheduling, a count is not.
 let windowAt = 0;
 let windowSeen = 0;
 
@@ -73,16 +69,6 @@ function paintStream(running) {
     setText('stream-word', 'IDLE');
   } else if (windowAt === 0) {
     setText('stream-word', '—');
-  }
-}
-
-// The active preset is the nearest requested rate within 5%. The daemon stores a
-// period, so 30 Hz arrives as 33 ms; 1000/33 is 30.3, which is inside the band.
-function paintRate(intervalMs) {
-  const requested = Number(intervalMs) > 0 ? 1000 / Number(intervalMs) : 0;
-  for (const preset of RATES) {
-    const active = requested > 0 && Math.abs(requested - preset) / preset <= 0.05;
-    setPressed('stream-rate-' + preset, active);
   }
 }
 
@@ -122,7 +108,6 @@ export function applyTelemetry(status) {
   windowSeen = 0;
 
   paintStream(running);
-  paintRate(status.interval_ms);
   paintCounters(status);
   setText('stream-source', status.source || (running ? 'waiting' : 'not started'));
   setText('stream-missing', missingText(status.missing));
@@ -183,20 +168,6 @@ function bindStop() {
   });
 }
 
-function bindRate() {
-  for (const hz of RATES) {
-    const button = el('stream-rate-' + hz);
-    if (!button) continue;
-    button.addEventListener('click', async () => {
-      for (const other of RATES) setDisabled('stream-rate-' + other, true);
-      const status = await runCommand('set_stream_rate', { hz }, 'stream');
-      for (const other of RATES) setDisabled('stream-rate-' + other, false);
-      if (status) applyTelemetry(status);
-      else await refreshTelemetry();
-    });
-  }
-}
-
 // The timing counters are a snapshot, not a poll: opening the sheet asks for one status
 // update, and later state events (rate changes, errors) refresh them. Polling here would
 // spawn sc.exe and enumerate USB once a second, which is not acceptable while the stream
@@ -212,6 +183,5 @@ function bindSessionCounters() {
 export function bindTelemetry() {
   bindStart();
   bindStop();
-  bindRate();
   bindSessionCounters();
 }

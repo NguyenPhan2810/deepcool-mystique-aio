@@ -32,6 +32,14 @@ pub async fn set_fan_io(
 }
 
 #[tauri::command]
+pub async fn set_rgb_mode(
+    state: State<'_, AppState>,
+    mode: String,
+) -> Result<CommandOutcome, CommandError> {
+    call_data(&state.client, cmd::SET_RGB_MODE, json!({ "mode": mode })).await
+}
+
+#[tauri::command]
 pub async fn set_brightness(
     state: State<'_, AppState>,
     brightness: u8,

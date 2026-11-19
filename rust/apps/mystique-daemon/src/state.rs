@@ -95,13 +95,26 @@ pub struct Settings {
     pub(crate) labels: MachineLabels,
     /// Which sensor feeds each RPM dial.
     pub(crate) fan_io: FanIo,
+    /// `motherboard`, `temperature` or `edge`. The first writes sync on (`00`); the other
+    /// two are the panel's own optical effect (`01`) and differ only in what the panel
+    /// does in Monitor vs Media mode.
+    pub(crate) rgb_mode: Option<String>,
     /// Last rotation this session set, or the last `0x10` read.
     pub(crate) last_rotation: Option<u8>,
 }
 
+/// The three lighting choices the vendor app interlocks. Only one can be active.
+pub const RGB_MODES: [&str; 3] = ["motherboard", "temperature", "edge"];
+
+pub fn parse_rgb_mode(text: &str) -> Option<&'static str> {
+    let wanted = text.trim().to_ascii_lowercase();
+    RGB_MODES.iter().copied().find(|mode| *mode == wanted)
+}
+
 impl Settings {
-    /// Seeds the session from the CLI. The machine-info init uses this rotation and
-    /// these labels, and every later `0x02` write preserves the rotation.
+    /// A session with the protocol defaults for everything except the given rotation
+    /// and labels. The binary builds its startup state from the settings file plus the
+    /// CLI overrides; this constructor is the fixture and test path.
     pub fn from_startup(rotation: Rotation, labels: MachineLabels) -> Self {
         Self {
             display: DisplayConfig::default().with_rotation(rotation),
@@ -149,6 +162,10 @@ impl Settings {
             gpu_label: self.labels.gpu.clone(),
             fan_io_cpu: self.fan_io.cpu.as_str().to_owned(),
             fan_io_pump: self.fan_io.pump.as_str().to_owned(),
+            rgb_mode: self
+                .rgb_mode
+                .clone()
+                .unwrap_or_else(|| "motherboard".to_owned()),
         }
     }
 }

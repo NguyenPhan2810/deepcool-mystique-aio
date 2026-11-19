@@ -43,8 +43,8 @@ pub mod request;
 pub mod response;
 
 pub use dto::{
-    CommandOutcome, DeviceInfo, DeviceState, OpenResult, PlanCommandSummary, RawPacketOutcome,
-    SettingsState, ShutdownAck, StatusDto, UploadKind, UploadPlanSummary,
+    CommandOutcome, DetectedLabels, DeviceInfo, DeviceState, OpenResult, PlanCommandSummary,
+    RawPacketOutcome, SettingsState, ShutdownAck, StatusDto, UploadKind, UploadPlanSummary,
 };
 pub use error::IpcError;
 pub use event::{Event, FrameValues, TelemetryStatus};

@@ -7,6 +7,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod labels;
 pub mod pipe;
 pub mod procfs;
 

@@ -9,6 +9,7 @@
 
 pub mod connection;
 pub mod erase;
+pub mod labels;
 pub mod raw;
 pub mod settings;
 pub mod telemetry;

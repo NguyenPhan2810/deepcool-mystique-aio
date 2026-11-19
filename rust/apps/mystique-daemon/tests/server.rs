@@ -10,7 +10,8 @@ use mystique_daemon::endpoint::Endpoint;
 use mystique_daemon::server;
 use mystique_daemon::worker::Worker;
 use mystique_ipc::{
-    cmd, decode, CommandOutcome, DeviceState, Request, Response, ServerMessage, ShutdownAck,
+    cmd, decode, CommandOutcome, DetectedLabels, DeviceState, Request, Response, ServerMessage,
+    ShutdownAck,
 };
 use mystique_sensors::SensorSample;
 use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt};
@@ -133,7 +134,16 @@ async fn a_client_round_trips_over_the_real_socket() {
     assert!(!response.ok);
     assert_eq!(response.error.unwrap().code, "unknown_command");
 
-    // 5. Shut down cleanly: the socket task stops, the worker blanks and exits.
+    // 5. `detected_labels` is answered by the connection handler, not the device worker:
+    // the session has no such dispatch (it would be `unknown_command`), so success here
+    // proves the host probe never queues behind a frame.
+    send(&mut writer, &Request::new(5, cmd::DETECTED_LABELS)).await;
+    let response = read_response(&mut reader, 5).await;
+    assert!(response.ok, "{:?}", response.error);
+    let labels: DetectedLabels = response.into_data().unwrap();
+    assert!(labels.cpu.len() <= 1, "{:?}", labels.cpu);
+
+    // 6. Shut down cleanly: the socket task stops, the worker blanks and exits.
     drop(writer);
     drop(reader);
     shutdown_tx.send(true).unwrap();

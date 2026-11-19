@@ -44,6 +44,8 @@ pub struct ProviderState {
     pub init_rotations: Mutex<Vec<u8>>,
     pub init_displays: Mutex<Vec<DisplayConfig>>,
     pub init_recordings: Mutex<Vec<RecordingConfig>>,
+    pub init_labels: Mutex<Vec<MachineLabels>>,
+    pub init_areas: Mutex<Vec<DisplayAreas>>,
 }
 
 impl ProviderState {
@@ -104,7 +106,7 @@ impl Panel for FakePanel {
         display: DisplayConfig,
         recording: RecordingConfig,
         labels: &MachineLabels,
-        _areas: DisplayAreas,
+        areas: DisplayAreas,
     ) -> Result<(), DeviceError> {
         self.state.inits.fetch_add(1, Ordering::SeqCst);
         if let Ok(mut rotations) = self.state.init_rotations.lock() {
@@ -115,6 +117,12 @@ impl Panel for FakePanel {
         }
         if let Ok(mut recordings) = self.state.init_recordings.lock() {
             recordings.push(recording);
+        }
+        if let Ok(mut recorded) = self.state.init_labels.lock() {
+            recorded.push(labels.clone());
+        }
+        if let Ok(mut recorded) = self.state.init_areas.lock() {
+            recorded.push(areas);
         }
         // The labels are part of the handshake; record that they were non-empty.
         debug_assert!(!labels.cpu.is_empty());

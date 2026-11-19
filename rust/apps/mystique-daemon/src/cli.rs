@@ -5,6 +5,7 @@
 use clap::Parser;
 use mystique_protocol::Rotation;
 
+use crate::settings_file::StartupOverrides;
 use crate::state::validate_label;
 
 #[derive(Debug, Parser)]
@@ -20,16 +21,19 @@ pub struct Options {
     pub interval_ms: u64,
 
     /// Rotation applied by the machine-info init (0, 1, 2, 3 = 0/90/180/270°).
-    #[arg(long, default_value_t = 0, value_parser = parse_rotation)]
-    pub rotation: u8,
+    /// Without the flag, the settings file's rotation (or 0) is used.
+    #[arg(long, value_parser = parse_rotation)]
+    pub rotation: Option<u8>,
 
     /// CPU label sent with 0x15 and included in the init handshake.
-    #[arg(long, default_value = "--")]
-    pub cpu: String,
+    /// Without the flag, the settings file's label (or "--") is used.
+    #[arg(long)]
+    pub cpu: Option<String>,
 
     /// GPU label sent with 0x16 and included in the init handshake.
-    #[arg(long, default_value = "--")]
-    pub gpu: String,
+    /// Without the flag, the settings file's label (or "--") is used.
+    #[arg(long)]
+    pub gpu: Option<String>,
 
     /// Override the control endpoint. Windows: a pipe name or `\\.\pipe\...`.
     /// Unix: an absolute socket path.
@@ -42,11 +46,25 @@ pub struct Options {
 }
 
 impl Options {
-    /// Validates everything clap cannot: label contents and the rotation range.
-    pub fn validate(&self) -> Result<Rotation, String> {
-        validate_label(&self.cpu, "CPU")?;
-        validate_label(&self.gpu, "GPU")?;
-        Rotation::new(self.rotation).map_err(|error| error.to_string())
+    /// Validates the flags that were actually passed. A flag that was not passed is
+    /// `None`, so the settings file's value stands; that is why these three flags have
+    /// no clap defaults.
+    pub fn startup_overrides(&self) -> Result<StartupOverrides, String> {
+        if let Some(cpu) = &self.cpu {
+            validate_label(cpu, "CPU")?;
+        }
+        if let Some(gpu) = &self.gpu {
+            validate_label(gpu, "GPU")?;
+        }
+        let rotation = match self.rotation {
+            Some(raw) => Some(Rotation::new(raw).map_err(|error| error.to_string())?),
+            None => None,
+        };
+        Ok(StartupOverrides {
+            rotation,
+            cpu: self.cpu.clone(),
+            gpu: self.gpu.clone(),
+        })
     }
 }
 
@@ -86,18 +104,32 @@ mod tests {
     fn options() -> Options {
         Options {
             interval_ms: 1000,
-            rotation: 0,
-            cpu: "--".to_owned(),
-            gpu: "--".to_owned(),
+            rotation: None,
+            cpu: None,
+            gpu: None,
             endpoint: None,
             service: false,
         }
     }
 
     #[test]
-    fn the_defaults_validate() {
-        let rotation = options().validate().unwrap();
-        assert_eq!(rotation.raw(), 0);
+    fn no_flags_means_no_overrides() {
+        let overrides = options().startup_overrides().unwrap();
+        assert!(overrides.rotation.is_none());
+        assert!(overrides.cpu.is_none());
+        assert!(overrides.gpu.is_none());
+    }
+
+    #[test]
+    fn the_flags_become_overrides() {
+        let mut options = options();
+        options.rotation = Some(2);
+        options.cpu = Some("Intel Core i9-14900K".to_owned());
+        options.gpu = Some("NVIDIA GeForce RTX 4070".to_owned());
+        let overrides = options.startup_overrides().unwrap();
+        assert_eq!(overrides.rotation.unwrap().degrees(), 180);
+        assert_eq!(overrides.cpu.as_deref(), Some("Intel Core i9-14900K"));
+        assert_eq!(overrides.gpu.as_deref(), Some("NVIDIA GeForce RTX 4070"));
     }
 
     #[test]
@@ -122,12 +154,15 @@ mod tests {
     #[test]
     fn labels_are_validated_before_the_device_is_touched() {
         let mut options = options();
-        options.cpu = String::new();
-        assert!(options.validate().unwrap_err().contains("empty"));
-        options.cpu = "caf\u{e9}".to_owned();
-        assert!(options.validate().unwrap_err().contains("ASCII"));
-        options.cpu = "CPU".to_owned();
-        options.rotation = 9;
-        assert!(options.validate().unwrap_err().contains("rotation"));
+        options.cpu = Some(String::new());
+        assert!(options.startup_overrides().unwrap_err().contains("empty"));
+        options.cpu = Some("caf\u{e9}".to_owned());
+        assert!(options.startup_overrides().unwrap_err().contains("ASCII"));
+        options.cpu = Some("CPU".to_owned());
+        options.rotation = Some(9);
+        assert!(options
+            .startup_overrides()
+            .unwrap_err()
+            .contains("rotation"));
     }
 }

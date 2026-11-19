@@ -27,9 +27,9 @@ access-denied state and retries; it never stops the vendor service itself.
 | Flag | Default | Meaning |
 |---|---|---|
 | `--interval-ms N` | `1000` | Telemetry period, 8–60000 ms. 33 ms is 30 Hz. |
-| `--rotation N` | `0` | Rotation used by the machine-info init (0–3). |
-| `--cpu NAME` | `--` | ASCII label for `0x15` and the init handshake, max 39 bytes. |
-| `--gpu NAME` | `--` | ASCII label for `0x16`, max 39 bytes. |
+| `--rotation N` | settings file, else `0` | Rotation used by the machine-info init (0–3). Passing the flag wins for this start only. |
+| `--cpu NAME` | settings file, else `--` | ASCII label for `0x15` and the init handshake, max 39 bytes. |
+| `--gpu NAME` | settings file, else `--` | ASCII label for `0x16`, max 39 bytes. |
 | `--endpoint VALUE` | platform | Override the socket. Windows: pipe name; Unix: absolute path. |
 | `--service` | off | Windows service mode. Not implemented; exits 2 with an explanation. |
 
@@ -44,6 +44,53 @@ access-denied state and retries; it never stops the vendor service itself.
 A single-instance lock (`daemon.lock` in the same per-user directory, or
 `%LOCALAPPDATA%\mystique\daemon.lock` on Windows) is taken **before** the socket or the
 device. A second daemon exits with `another mystique-daemon is already running`.
+
+## Settings file
+
+Settings survive a restart in one JSON file, read **before** the device init and written
+after every successful settings command:
+
+- Windows: `%LOCALAPPDATA%\mystique\settings.json`
+- Linux: `$XDG_CONFIG_HOME/mystique/settings.json`, or
+  `~/.config/mystique/settings.json` when `XDG_CONFIG_HOME` is unset
+
+```json
+{
+  "version": 1,
+  "brightness": 70,
+  "rotation": 0,
+  "gyro": false,
+  "idle_screen": true,
+  "rgb_sync": true,
+  "screen_restore_brightness": 70,
+  "recording": { "cpu_clock": true, "cpu_temp": true },
+  "areas": { "main": 0, "style": 0, "aux": 0 },
+  "media_timing": { "time": 0, "animation": 0 },
+  "labels": { "cpu": "--", "gpu": "--" },
+  "fan_io": { "cpu": "cpu", "pump": "pump" }
+}
+```
+
+`version` is `1`. The file is written atomically — the new body goes to
+`settings.json.tmp` and is renamed over the old file — after a successful
+`set_brightness`, `set_rotation`, `set_gyro`, `set_screen`, `set_idle_screen`,
+`set_rgb_sync`, `set_recording`, `set_areas`, `set_media_timing`, `set_labels` or
+`set_fan_io`. A failed command writes nothing. A write failure is printed to stderr and
+does not fail the command.
+
+A missing file is a fresh install: defaults, no message. A file that cannot be read,
+parsed or applied (bad JSON, unknown `version`, out-of-range value, bad label) is
+reported once on stderr and ignored, and the daemon starts on its defaults. Deleting the
+file is the reset.
+
+**The telemetry stream rate is not persisted.** It stays a session choice (and a CLI
+flag), because it is a host timing preference rather than panel state. `--rotation`,
+`--cpu` and `--gpu` override the file for the current start only; without the flags the
+file wins, which is why they have no defaults.
+
+`device_state` reports the loaded values from its first call, and the reconnect/init
+handshake carries the saved `0x02` display config, `0x05` recording options, `0x04`
+areas and the two labels.
 
 ## Wire format
 
@@ -129,6 +176,7 @@ of the UI's `set_screen_power`, with the argument `enabled`.
 | `set_areas` | `main: 0..=15`, `style: 0..=2` (default `0`), `aux: 0..=15` | `CommandOutcome` |
 | `set_media_timing` | `time: 0..=2`, `animation: 0..=2` | `CommandOutcome` |
 | `set_labels` | `cpu: string?`, `gpu: string?` | `CommandOutcome` |
+| `detected_labels` | none | `DetectedLabels`: `{ "cpu": [...], "gpu": [...] }`; host probe, no device needed, empty lists on failure |
 | `raw_packet` | `command: u8`, `payload: bytes[0..=39]`, `pipe: "init"\|"data"`, `dry_run: bool` | `RawPacketOutcome` |
 | `erase_images` | none | `CommandOutcome` |
 | `plan_upload` | `path: string`, `fit?: "cover"\|"contain"` | `UploadPlanSummary` |
@@ -171,6 +219,12 @@ Semantics worth knowing:
   device command**: `0x01` carries one number per dial (21..22 first, 24..25 second) and
   nothing about where it came from. Changing the routing pushes one frame and no setting
   packet. `none` sends 0, which the panel draws as 0 RPM.
+- `set_labels` keeps the labels as typed; `detected_labels` lists what the host reports so
+  the UI can offer names instead of a text field. Detection is a host probe (`sysinfo` for
+  the CPU, PowerShell's `Win32_VideoController` or `lspci -mm` for the GPUs) and is
+  answered by the connection handler, **not** the device worker: a slow PowerShell start
+  must not stall the frame cadence. It needs no open device; a probe that fails answers
+  with empty lists.
 - `set_rotation` always clears the gyro in the same payload; the panel ignores rotation
   while the gyro is enabled.
 - `set_areas` sends `0x04` and then one immediate `0x01` frame, because a style byte only

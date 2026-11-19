@@ -23,6 +23,7 @@ pub mod lock;
 pub mod panel;
 pub mod server;
 pub mod service;
+pub mod settings_file;
 pub mod state;
 pub mod upload;
 pub mod worker;

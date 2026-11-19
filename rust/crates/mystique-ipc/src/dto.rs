@@ -58,6 +58,13 @@ pub struct SettingsState {
     /// Which sensor feeds the panel's second RPM dial.
     #[serde(default = "default_fan_pump")]
     pub fan_io_pump: String,
+    /// The active lighting source: `motherboard`, `temperature` or `edge`.
+    #[serde(default = "default_rgb_mode")]
+    pub rgb_mode: String,
+}
+
+fn default_rgb_mode() -> String {
+    "motherboard".to_owned()
 }
 
 impl Default for SettingsState {
@@ -84,6 +91,7 @@ impl Default for SettingsState {
             gpu_label: "--".to_owned(),
             fan_io_cpu: default_fan_cpu(),
             fan_io_pump: default_fan_pump(),
+            rgb_mode: default_rgb_mode(),
         }
     }
 }
@@ -158,6 +166,17 @@ pub struct CommandOutcome {
     pub packets: Vec<crate::response::PacketRecord>,
     pub settings: SettingsState,
     pub message: String,
+}
+
+/// The CPU and GPU names `detected_labels` found on this host.
+///
+/// Both lists may be empty: detection is a convenience, and the label fields stay free
+/// text so the owner can always type a name by hand. Order is the detection order with
+/// duplicates removed.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DetectedLabels {
+    pub cpu: Vec<String>,
+    pub gpu: Vec<String>,
 }
 
 /// The raw packet panel's result. Dry runs build the packet without touching USB;
@@ -295,6 +314,33 @@ mod tests {
         assert!(json.get("telemetry").is_none());
         let decoded: StatusDto = serde_json::from_value(json).unwrap();
         assert_eq!(decoded, status);
+    }
+
+    #[test]
+    fn detected_labels_have_the_documented_two_lists() {
+        let labels = DetectedLabels {
+            cpu: vec!["Intel Core i9-14900K".to_owned()],
+            gpu: vec![
+                "NVIDIA GeForce RTX 4070".to_owned(),
+                "Intel UHD Graphics 770".to_owned(),
+            ],
+        };
+        let json = serde_json::to_value(&labels).unwrap();
+        assert_eq!(
+            json,
+            serde_json::json!({
+                "cpu": ["Intel Core i9-14900K"],
+                "gpu": ["NVIDIA GeForce RTX 4070", "Intel UHD Graphics 770"],
+            })
+        );
+        assert_eq!(
+            serde_json::from_value::<DetectedLabels>(json).unwrap(),
+            labels
+        );
+        assert_eq!(
+            serde_json::to_value(DetectedLabels::default()).unwrap(),
+            serde_json::json!({ "cpu": [], "gpu": [] })
+        );
     }
 
     #[test]

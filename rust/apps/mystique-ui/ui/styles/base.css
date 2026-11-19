@@ -1,25 +1,26 @@
-/* Tokens, reset, and the shared primitives. One accent: amber is live state and
-   active selection only. Errors use a separate semantic red. */
+/* Tokens, reset, and the shared primitives. The ground is a cool near-black;
+   panels sit one step above it. One accent: blue is live state and active
+   selection only. Errors use a separate warm red. */
 
 :root {
-  --ground: #141311;
-  --panel: #1c1a17;
-  --panel-2: #221f1b;
-  --well: #100f0d;
-  --ink: #f0ece4;
-  --ink-2: #d6d0c6;
-  --label: #a39c90;
-  --label-2: #8f887c;
-  --hair: #2c2925;
-  --hair-2: #38342e;
-  --accent: #d9a05b;
-  --accent-dim: #6f5431;
-  --accent-wash: #2a2118;
-  --error: #d9795f;
-  --error-wash: #2a1b17;
-  --panel-ink: #f4f0e8;
-  --panel-label: #9b9488;
-  --panel-hair: #2a2723;
+  --ground: #0f1419;
+  --panel: #171d24;
+  --panel-2: #1d242c;
+  --well: #0b1014;
+  --ink: #e8eef4;
+  --ink-2: #c9d3de;
+  --label: #93a1b1;
+  --label-2: #8391a2;
+  --hair: #232b33;
+  --hair-2: #2d3741;
+  --accent: #5ba7f0;
+  --accent-dim: #2e5a80;
+  --accent-wash: #122430;
+  --error: #e8705f;
+  --error-wash: #2a1614;
+  --panel-ink: #edf2f7;
+  --panel-label: #9aa8b8;
+  --panel-hair: #29323b;
   --sans: "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
   --mono: "Cascadia Mono", Consolas, ui-monospace, "SFMono-Regular", monospace;
 }
@@ -120,5 +121,5 @@ h1, h2, p, figure, figcaption { margin: 0; }
 }
 
 ::-webkit-scrollbar { width: 9px; height: 9px; }
-::-webkit-scrollbar-thumb { background: #3a352e; border: 2px solid var(--ground); }
+::-webkit-scrollbar-thumb { background: #333d47; border: 2px solid var(--ground); }
 ::-webkit-scrollbar-track { background: transparent; }

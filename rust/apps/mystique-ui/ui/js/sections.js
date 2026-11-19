@@ -12,10 +12,10 @@ import {
   eraseStoredContent,
   refreshStatus,
   state,
-  updateLabelCounters,
 } from './state.js';
 import { renderPreview } from './preview.js';
 import { refreshTelemetry } from './telemetry.js';
+import { bindLabels } from './labels.js';
 
 function deviceSummary(result) {
   if (result.already_open) return 'already open';
@@ -154,15 +154,17 @@ function bindIdleScreen() {
   });
 }
 
-function bindRgbSync() {
-  const toggle = el('rgb-sync');
-  if (!toggle) return;
-  toggle.addEventListener('change', async () => {
-    const outcome = await runCommand('set_rgb_sync', { enabled: toggle.checked }, 'rgb');
-    if (outcome) applyOutcome(outcome);
-    else applySettings(state.lastSettings);
-    renderPreview();
-  });
+// The three lighting choices are one interlocked setting, exactly like the vendor app:
+// turning one on turns the others off. The radio group makes that impossible to violate.
+function bindRgbMode() {
+  for (const input of document.querySelectorAll('input[name="rgb-mode"]')) {
+    input.addEventListener('change', async () => {
+      if (!input.checked) return;
+      const outcome = await runCommand('set_rgb_mode', { mode: input.value }, 'rgb');
+      if (outcome) applyOutcome(outcome);
+      else applySettings(state.lastSettings);
+    });
+  }
 }
 
 function bindFanIo() {
@@ -260,46 +262,6 @@ function bindMedia() {
   }
 }
 
-function bindLabels() {
-  const cpu = el('label-cpu');
-  const gpu = el('label-gpu');
-
-  for (const input of [cpu, gpu]) {
-    if (input) input.addEventListener('input', updateLabelCounters);
-  }
-
-  const send = async () => {
-    if (!cpu || !gpu) return;
-    const outcome = await runCommand('set_labels', { cpu: cpu.value, gpu: gpu.value }, 'labels');
-    if (outcome) applyOutcome(outcome);
-  };
-
-  // Text is the one field where every keystroke is not a commitment. Debounce while
-  // typing, and send immediately on blur or Enter so leaving the field always commits.
-  let timer = null;
-  const later = () => {
-    if (timer) clearTimeout(timer);
-    timer = setTimeout(() => { timer = null; void send(); }, 500);
-  };
-  for (const input of [cpu, gpu]) {
-    if (!input) continue;
-    input.addEventListener('input', later);
-    input.addEventListener('blur', () => {
-      if (timer) clearTimeout(timer);
-      timer = null;
-      void send();
-    });
-    input.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        if (timer) clearTimeout(timer);
-        timer = null;
-        void send();
-      }
-    });
-  }
-}
-
 async function sendErase() {
   const confirm = el('dashboard-confirm');
   const send = el('btn-dashboard-erase');
@@ -367,7 +329,7 @@ export function bindSections() {
   bindRotation();
   bindGyro();
   bindIdleScreen();
-  bindRgbSync();
+  bindRgbMode();
   bindFanIo();
   bindRecording();
   bindAreas();

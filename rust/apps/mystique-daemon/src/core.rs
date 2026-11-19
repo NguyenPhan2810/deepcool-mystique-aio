@@ -13,6 +13,7 @@
 //! immediate attempt; `close_device` turns automatic reconnection off until the next
 //! `open_device`.
 
+use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 use mystique_ipc::{codes, CommandError, DeviceState, Event, SettingsState, TelemetryStatus};
@@ -64,6 +65,10 @@ pub struct Core {
     pub(crate) pending_upload: Option<PendingUpload>,
     /// False after `close_device`, so a retry cannot silently undo an explicit close.
     pub(crate) auto_reconnect: bool,
+    /// Where successful settings changes are written. `None` in tests and when the
+    /// per-user directory cannot be found; the daemon then behaves as it did before
+    /// persistence existed.
+    pub(crate) settings_path: Option<PathBuf>,
 
     present: bool,
     service: ServiceSnapshot,
@@ -96,6 +101,7 @@ impl Core {
             last_error: None,
             pending_upload: None,
             auto_reconnect: true,
+            settings_path: None,
             present,
             service,
             next_tick: now,
@@ -106,6 +112,24 @@ impl Core {
 
     pub fn is_open(&self) -> bool {
         self.panel.is_some()
+    }
+
+    /// Enables the settings file. Called once, before the worker takes ownership; the
+    /// startup settings themselves are already loaded by the caller.
+    pub fn with_settings_path(mut self, path: PathBuf) -> Self {
+        self.settings_path = Some(path);
+        self
+    }
+
+    /// Writes the current settings after a successful change. A failure is reported and
+    /// dropped: the device command already succeeded and must not be reported as failed.
+    pub(crate) fn persist_settings(&self) {
+        let Some(path) = self.settings_path.as_deref() else {
+            return;
+        };
+        if let Err(message) = crate::settings_file::save(path, &self.settings) {
+            eprintln!("mystique-daemon: could not save the settings: {message}");
+        }
     }
 
     pub fn is_stream_running(&self) -> bool {

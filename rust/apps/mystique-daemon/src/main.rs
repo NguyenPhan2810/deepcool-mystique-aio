@@ -6,6 +6,7 @@
 
 #![forbid(unsafe_code)]
 
+use std::path::PathBuf;
 use std::process::ExitCode;
 use std::time::{Duration, Instant};
 
@@ -14,9 +15,8 @@ use mystique_daemon::core::{Core, CoreConfig};
 use mystique_daemon::endpoint::Endpoint;
 use mystique_daemon::lock::InstanceLock;
 use mystique_daemon::state::Settings;
-use mystique_daemon::{cli, environment, lock, panel, server, worker};
+use mystique_daemon::{cli, environment, lock, panel, server, settings_file, worker};
 use mystique_ipc::{ServerMessage, PROTOCOL_VERSION};
-use mystique_protocol::MachineLabels;
 use tokio::sync::{broadcast, watch};
 
 /// Broadcast history per client. At 1 Hz this is minutes of backlog, and a client that
@@ -36,8 +36,8 @@ fn main() -> ExitCode {
         return ExitCode::from(2);
     }
 
-    let rotation = match options.validate() {
-        Ok(rotation) => rotation,
+    let overrides = match options.startup_overrides() {
+        Ok(overrides) => overrides,
         Err(message) => {
             eprintln!("mystique-daemon: {message}");
             return ExitCode::from(2);
@@ -74,10 +74,21 @@ fn main() -> ExitCode {
         return ExitCode::from(1);
     }
 
-    let settings = Settings::from_startup(
-        rotation,
-        MachineLabels::new(options.cpu.clone(), options.gpu.clone()),
-    );
+    // Before anything can open the panel: the first init and every device_state answer
+    // carry the saved configuration, not the crate defaults. A per-user directory that
+    // cannot be found costs persistence, not the daemon.
+    let settings_path = match settings_file::default_settings_path() {
+        Ok(path) => Some(path),
+        Err(message) => {
+            eprintln!("mystique-daemon: settings will not be saved: {message}");
+            None
+        }
+    };
+    let mut settings = match settings_path.as_deref() {
+        Some(path) => settings_file::load(path),
+        None => Settings::default(),
+    };
+    settings_file::apply_startup(&mut settings, overrides);
     let config = CoreConfig {
         interval: Duration::from_millis(options.interval_ms),
         ..CoreConfig::default()
@@ -88,6 +99,9 @@ fn main() -> ExitCode {
         endpoint.display(),
         options.interval_ms
     );
+    if let Some(path) = settings_path.as_deref() {
+        eprintln!("mystique-daemon: settings {}", path.display());
+    }
 
     let runtime = match tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -100,7 +114,13 @@ fn main() -> ExitCode {
         }
     };
 
-    let result = runtime.block_on(run(endpoint.clone(), config, settings, instance_lock));
+    let result = runtime.block_on(run(
+        endpoint.clone(),
+        config,
+        settings,
+        settings_path,
+        instance_lock,
+    ));
     endpoint.cleanup();
 
     match result {
@@ -116,11 +136,12 @@ async fn run(
     endpoint: Endpoint,
     config: CoreConfig,
     settings: Settings,
+    settings_path: Option<PathBuf>,
     _lock: InstanceLock,
 ) -> Result<(), String> {
     let (events, _) = broadcast::channel::<ServerMessage>(EVENT_BUFFER);
 
-    let core = Core::new(
+    let mut core = Core::new(
         Box::new(panel::RealProvider),
         mystique_sensors::default_sampler(),
         Box::new(environment::RealEnvironment),
@@ -128,6 +149,9 @@ async fn run(
         settings,
         Instant::now(),
     );
+    if let Some(path) = settings_path {
+        core = core.with_settings_path(path);
+    }
     let worker = worker::Worker::spawn(core, events.clone())
         .map_err(|error| format!("could not start the device worker: {error}"))?;
 

@@ -454,6 +454,56 @@ fn a_reconnect_init_carries_idle_rgb_and_recording_state() {
 }
 
 #[test]
+fn choosing_a_lighting_mode_turns_the_others_off() {
+    let state = Arc::new(ProviderState::new());
+    let now = Instant::now();
+    let mut core = open_core(&state, now);
+
+    // The panel's own optical effect: sync off, byte 3 = 01.
+    let (response, _) = core.handle(
+        &request(1, cmd::SET_RGB_MODE, serde_json::json!({ "mode": "edge" })),
+        now,
+    );
+    assert!(response.ok);
+    let outcome: CommandOutcome = response.into_data().unwrap();
+    assert_eq!(outcome.settings.rgb_mode, "edge");
+    assert!(!outcome.settings.rgb_sync);
+    assert_eq!(
+        state.last_payload(0x02).as_deref(),
+        Some([0x01, 0x00, 0x00, 0x01, 0x46].as_slice())
+    );
+
+    // Motherboard sync: the other two are off, byte 3 = 00.
+    let (response, _) = core.handle(
+        &request(
+            2,
+            cmd::SET_RGB_MODE,
+            serde_json::json!({ "mode": "motherboard" }),
+        ),
+        now,
+    );
+    assert!(response.ok);
+    let outcome: CommandOutcome = response.into_data().unwrap();
+    assert_eq!(outcome.settings.rgb_mode, "motherboard");
+    assert!(outcome.settings.rgb_sync);
+    assert_eq!(
+        state.last_payload(0x02).as_deref(),
+        Some([0x01, 0x00, 0x00, 0x00, 0x46].as_slice())
+    );
+
+    let (response, _) = core.handle(
+        &request(
+            3,
+            cmd::SET_RGB_MODE,
+            serde_json::json!({ "mode": "rainbow" }),
+        ),
+        now,
+    );
+    assert!(!response.ok);
+    assert_eq!(response.error.unwrap().code, "range");
+}
+
+#[test]
 fn the_fan_routing_is_host_side_and_only_pushes_a_frame() {
     let state = Arc::new(ProviderState::new());
     let now = Instant::now();

@@ -12,7 +12,7 @@ use mystique_protocol::{
 use super::{failed, ok, parse};
 use crate::core::Core;
 use crate::error;
-use crate::state::{validate_label, FanIo, FanSource};
+use crate::state::{parse_rgb_mode, validate_label, FanIo, FanSource};
 
 impl Core {
     pub(super) fn command_set_brightness(&mut self, request: &Request, now: Instant) -> Response {
@@ -119,6 +119,42 @@ impl Core {
 
     /// `0x02[3]`: RGB light effect sync. The LCD firmware defers the ring colour to the
     /// motherboard; the temperature warning belongs to the LED subsystem and is absent.
+    /// The three lighting choices are one interlocked setting: choosing one turns the
+    /// others off. On the wire `motherboard` is `00` and the two optical modes are `01`;
+    /// which optical behaviour the panel shows depends on its current mode.
+    pub(super) fn command_set_rgb_mode(&mut self, request: &Request, now: Instant) -> Response {
+        let args = match parse::<args::RgbMode>(request) {
+            Ok(value) => value,
+            Err(error) => return failed(request, error),
+        };
+        let Some(mode) = parse_rgb_mode(&args.mode) else {
+            return failed(
+                request,
+                CommandError::range(format!(
+                    "rgb mode \"{}\" is not motherboard, temperature or edge",
+                    args.mode
+                )),
+            );
+        };
+        let config = self.settings.display.with_rgb_sync(mode == "motherboard");
+        let records = match self.write_packets(vec![config.packet()], now) {
+            Ok(records) => records,
+            Err(error) => return failed(request, error),
+        };
+        self.settings.display = config;
+        self.settings.rgb_mode = Some(mode.to_owned());
+        let message = match mode {
+            "motherboard" => {
+                "lighting follows the motherboard (0x02[3] = 00); the other two are off".to_owned()
+            }
+            other => format!(
+                "lighting uses the panel's own {other} effect (0x02[3] = 01); \
+                 motherboard sync is off"
+            ),
+        };
+        ok(request, &self.outcome(records, message))
+    }
+
     pub(super) fn command_set_rgb_sync(&mut self, request: &Request, now: Instant) -> Response {
         let args = match parse::<args::Enabled>(request) {
             Ok(value) => value,

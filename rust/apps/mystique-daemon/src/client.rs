@@ -7,13 +7,17 @@
 //! socket is stopped by a write timeout. The request path is separately backpressured
 //! by its own bounded response queue.
 //!
-//! `shutdown` is the one command answered here rather than by the device worker: a stop
-//! request must not queue behind a full request queue or a wedged transfer. Its reply is
-//! flushed first, then the process-wide stop signal is set.
+//! `shutdown` and `detected_labels` are answered here rather than by the device worker:
+//! a stop request must not queue behind a full request queue or a wedged transfer, and
+//! label detection shells out to PowerShell (`~250 ms`), which must not stall the panel's
+//! frame cadence. The `shutdown` reply is flushed first, then the process-wide stop
+//! signal is set.
 
 use std::time::Duration;
 
-use mystique_ipc::{cmd, CommandError, LineDecoder, Request, Response, ServerMessage, ShutdownAck};
+use mystique_ipc::{
+    cmd, CommandError, DetectedLabels, LineDecoder, Request, Response, ServerMessage, ShutdownAck,
+};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::sync::{broadcast, mpsc, oneshot, watch};
 
@@ -105,6 +109,18 @@ pub async fn handle<S>(
                 break 'read;
             }
 
+            if request.cmd == cmd::DETECTED_LABELS {
+                // A host probe, not a device exchange. `spawn_blocking` keeps PowerShell
+                // off both the async runtime and the device worker, so a 30 Hz stream
+                // keeps its cadence while the picker is populated.
+                let response = detect_labels(id).await;
+                let outbound = Outbound::new(ServerMessage::Response(response));
+                if responses_tx.send(outbound).await.is_err() {
+                    break;
+                }
+                continue;
+            }
+
             let response = match worker.request(request) {
                 Ok(receiver) => match receiver.await {
                     Ok(response) => response,
@@ -124,6 +140,21 @@ pub async fn handle<S>(
 
     drop(responses_tx);
     writer_task.abort();
+}
+
+/// The `detected_labels` answer. The blocking probe runs on the blocking pool; a panic
+/// or a thread-pool failure is an empty pair of lists, which is the command's documented
+/// "found nothing" answer, never an error.
+async fn detect_labels(id: u64) -> Response {
+    let labels = tokio::task::spawn_blocking(mystique_sensors::labels::detect)
+        .await
+        .map(|found| DetectedLabels {
+            cpu: found.cpu,
+            gpu: found.gpu,
+        })
+        .unwrap_or_default();
+    Response::success(id, &labels)
+        .unwrap_or_else(|error| Response::failure(id, CommandError::internal(error.to_string())))
 }
 
 async fn write_loop<S>(
@@ -234,6 +265,19 @@ mod tests {
             message.map(|outbound| outbound.message),
             Some(ServerMessage::Response(_))
         ));
+    }
+
+    #[tokio::test]
+    async fn detected_labels_is_answered_with_the_two_lists() {
+        let response = detect_labels(11).await;
+        assert!(response.ok, "{response:?}");
+        let labels: DetectedLabels = response.into_data().unwrap();
+        assert!(labels.cpu.len() <= 1, "{:?}", labels.cpu);
+        assert!(labels
+            .cpu
+            .iter()
+            .chain(labels.gpu.iter())
+            .all(|name| !name.trim().is_empty()));
     }
 
     #[tokio::test]
