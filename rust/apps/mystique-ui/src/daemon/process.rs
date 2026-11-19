@@ -87,6 +87,15 @@ impl Launcher {
             Some(file) => Stdio::from(file),
             None => Stdio::null(),
         });
+        // A console-subsystem child gets its own console window even when every stream is
+        // redirected, unless the parent says otherwise. The daemon is headless; it must
+        // never own a window. It stays a console binary so `cargo run` still prints logs.
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+            command.creation_flags(CREATE_NO_WINDOW);
+        }
         command
     }
 
