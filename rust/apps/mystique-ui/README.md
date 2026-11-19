@@ -48,8 +48,10 @@ The frontend is static files in `ui/`: `index.html`, split stylesheets in `style
 ES modules in `js/`. Fonts are local WOFF2 files in `ui/fonts/`. `tauri.conf.json` sets
 `build.frontendDist` to `ui`, so the files are embedded in the binary through
 `tauri-build` + the `custom-protocol` feature. There is no dev server and no
-`beforeBuildCommand`; `cargo build` is the complete build. `build.rs` fingerprints the
-`ui/` tree, so a UI-only edit also triggers a rebuild of the embedded assets.
+`beforeDevCommand`; `cargo build` is the complete build. `build.rs` fingerprints the
+`ui/` tree, so a UI-only edit also triggers a rebuild of the embedded assets. Installer
+builds additionally stage the daemon through `beforeBuildCommand`; see **Installer
+(Windows)** below.
 
 The interface follows the **official DeepCool app's device page** as its information
 architecture, rendered in the approved Instrument Console material: settings on the left,
@@ -63,6 +65,38 @@ fetched at runtime. The packet log is a right-hand drawer in the unused margin, 
 default and streaming while closed. A **Raw packet** disclosure at the bottom of the stage
 can build, dry-run and send any command byte the protocol crate accepts; the daemon builds
 the 48-byte packet, so the UI never computes a checksum.
+
+## Installer (Windows)
+
+The shipped pair is `mystique-ui.exe` and `mystique-daemon.exe` in one directory, because
+the UI resolves the daemon as a sibling of its own executable. Build the installer with:
+
+```powershell
+pwsh -File rust/scripts/build-installer.ps1
+```
+
+The script builds `mystique-daemon` in release first, stages that exact binary in
+`installer/stage`, then runs the Tauri CLI with the NSIS target. The order is not
+cosmetic: `tauri.conf.json` maps the stage directory into the package as `daemon\`, and
+the install hook moves `mystique-daemon.exe` beside `mystique-ui.exe` after the file copy.
+The resource is not mapped to the root directly because Tauri copies resources next to
+the built UI in **every** profile; a root mapping would make a debug build overwrite
+`target\debug\mystique-daemon.exe`, which is a running process and cannot be replaced on
+Windows. `build.beforeBuildCommand` runs the same staging script, so a bare
+`tauri build` cannot bundle an old or absent daemon either.
+
+`cargo tauri` is used when installed; otherwise the script fetches the CLI with
+`pnpm dlx @tauri-apps/cli@2`. No global install is required.
+
+Output: `rust/target/release/bundle/nsis/MYSTIQUE Control_0.1.0_x64-setup.exe`.
+
+The package is per-user: files go to `%LOCALAPPDATA%\MYSTIQUE Control`, the uninstall
+metadata lives under `HKCU`, and copying the files needs no elevation. The NSIS installer
+creates the Start Menu shortcut, which targets the installed `mystique-ui.exe`, and the
+uninstaller removes it. Windows may ask for elevation **once**, for the install hook that
+runs `sc config MystiqueService start= demand`; a missing service or a declined prompt is
+ignored. Uninstalling leaves `MystiqueService` untouched and keeps
+`%LOCALAPPDATA%\mystique\settings.json` unless the user ticks **Delete app data**.
 
 ## Who holds the device
 

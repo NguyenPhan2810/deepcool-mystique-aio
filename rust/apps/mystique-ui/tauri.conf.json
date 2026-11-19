@@ -4,7 +4,11 @@
   "version": "0.1.0",
   "identifier": "org.nguyenphan.mystique-ui",
   "build": {
-    "frontendDist": "ui"
+    "frontendDist": "ui",
+    "beforeBuildCommand": {
+      "script": "pwsh -NoProfile -ExecutionPolicy Bypass -File prepare-daemon.ps1",
+      "cwd": "installer"
+    }
   },
   "app": {
     "withGlobalTauri": true,
@@ -24,8 +28,19 @@
     ]
   },
   "bundle": {
-    "active": false,
-    "targets": "all",
-    "icon": ["icons/icon.ico"]
+    "active": true,
+    "targets": ["nsis"],
+    "icon": ["icons/icon.ico"],
+    "resources": {
+      "installer/stage": "daemon"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico",
+        "installerHooks": "installer/hooks.nsh"
+      }
+    }
   }
 }
