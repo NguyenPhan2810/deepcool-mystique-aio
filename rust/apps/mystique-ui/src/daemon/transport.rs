@@ -158,6 +158,13 @@ mod platform {
         path: PathBuf,
     }
 
+    #[cfg(test)]
+    impl UnixTransport {
+        pub(super) fn at(path: PathBuf) -> Self {
+            Self { path }
+        }
+    }
+
     impl Transport for UnixTransport {
         fn connect(&self, timeout: Duration) -> Connecting {
             let path = self.path.clone();
@@ -175,7 +182,11 @@ mod platform {
         }
 
         fn is_available(&self) -> bool {
-            self.path.exists()
+            // A stale socket file outlives the daemon that created it, so `exists()` is
+            // not a probe: after a crash the file stays and the UI would never spawn a
+            // replacement. Only a successful connect proves a listener is there. The
+            // connection is accepted and dropped, exactly like the Windows pipe probe.
+            std::os::unix::net::UnixStream::connect(&self.path).is_ok()
         }
 
         fn endpoint(&self) -> String {
@@ -321,5 +332,44 @@ mod tests {
 
         let _ = peer.await;
         drop(stream);
+    }
+
+    /// A socket file survives a crashed daemon on Unix. The spawn decision must not be
+    /// fooled by it, or the UI never starts a replacement and every request fails.
+    #[cfg(unix)]
+    #[test]
+    fn a_stale_socket_file_does_not_count_as_a_running_daemon() {
+        let dir =
+            std::env::temp_dir().join(format!("mystique-ui-transport-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("control.sock");
+
+        let listener = std::os::unix::net::UnixListener::bind(&path).unwrap();
+        drop(listener);
+        assert!(path.exists(), "the socket file outlives its listener");
+
+        let transport = platform::UnixTransport::at(path.clone());
+        assert!(!transport.is_available(), "nothing is listening");
+
+        std::fs::remove_file(&path).unwrap();
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// The positive half: a live listener is found by the same probe.
+    #[cfg(unix)]
+    #[test]
+    fn a_live_unix_listener_is_available() {
+        let dir = std::env::temp_dir().join(format!("mystique-ui-live-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("control.sock");
+
+        let listener = std::os::unix::net::UnixListener::bind(&path).unwrap();
+        let transport = platform::UnixTransport::at(path.clone());
+        assert!(transport.is_available(), "a bound socket is a listener");
+        assert!(transport.endpoint().ends_with("control.sock"));
+
+        drop(listener);
+        std::fs::remove_file(&path).unwrap();
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }

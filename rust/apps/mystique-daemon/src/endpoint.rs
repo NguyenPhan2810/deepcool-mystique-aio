@@ -5,9 +5,11 @@
 //! `/tmp/mystique-<uid>/control.sock`. Both are local to the machine; neither is ever a
 //! TCP port.
 //!
-//! `--endpoint` overrides the location. On Unix the file is created in a 0700 directory
-//! and chmod 0600, so only the owning user can connect. A stale socket left by a crash
-//! is removed only after a connect attempt proves nobody is listening.
+//! `--endpoint` overrides the location. On Unix the socket file is chmod 0600 after it is
+//! bound. The directory is chmod 0700 only when this process created it — a shared
+//! directory such as `/tmp` is never restricted, because that is not ours to change. A
+//! stale socket left by a crash is removed only after a connect attempt proves nobody is
+//! listening, and only when the path really is a socket.
 
 #[cfg(windows)]
 #[derive(Debug, Clone)]
@@ -95,8 +97,13 @@ impl Endpoint {
 
     /// Creates the directory, proves no live process owns the path, and removes only a
     /// provably stale socket.
+    ///
+    /// The directory is restricted to 0700 only when this call created it, or when it is
+    /// the per-user control directory the endpoint owns by construction. `--endpoint` may
+    /// point at a shared directory (`/tmp`, a test's temp dir); chmod on one of those is
+    /// not permitted, and would be destructive if it were.
     pub fn prepare(&self) -> Result<(), String> {
-        use std::os::unix::fs::PermissionsExt;
+        use std::os::unix::fs::{FileTypeExt, PermissionsExt};
 
         let parent = self.path.parent().ok_or_else(|| {
             format!(
@@ -104,22 +111,41 @@ impl Endpoint {
                 self.path.display()
             )
         })?;
+        let existed = parent.exists();
         std::fs::create_dir_all(parent)
             .map_err(|error| format!("could not create {}: {error}", parent.display()))?;
-        std::fs::set_permissions(parent, std::fs::Permissions::from_mode(0o700))
-            .map_err(|error| format!("could not restrict {}: {error}", parent.display()))?;
+        let control_dir = control_dir().ok();
+        if !existed || control_dir.as_deref() == Some(parent) {
+            std::fs::set_permissions(parent, std::fs::Permissions::from_mode(0o700))
+                .map_err(|error| format!("could not restrict {}: {error}", parent.display()))?;
+        }
 
-        if self.path.exists() {
-            match std::os::unix::net::UnixStream::connect(&self.path) {
-                Ok(_) => {
+        match std::fs::symlink_metadata(&self.path) {
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => {
+                return Err(format!(
+                    "could not inspect {}: {error}",
+                    self.path.display()
+                ))
+            }
+            Ok(metadata) => {
+                if !metadata.file_type().is_socket() {
                     return Err(format!(
-                        "another process is already listening on {}",
+                        "{} exists and is not a socket; refusing to remove it",
                         self.path.display()
-                    ))
+                    ));
                 }
-                Err(_) => std::fs::remove_file(&self.path).map_err(|error| {
-                    format!("could not remove {}: {error}", self.path.display())
-                })?,
+                match std::os::unix::net::UnixStream::connect(&self.path) {
+                    Ok(_) => {
+                        return Err(format!(
+                            "another process is already listening on {}",
+                            self.path.display()
+                        ))
+                    }
+                    Err(_) => std::fs::remove_file(&self.path).map_err(|error| {
+                        format!("could not remove {}: {error}", self.path.display())
+                    })?,
+                }
             }
         }
         Ok(())
@@ -203,5 +229,64 @@ mod tests {
         assert!(Endpoint::from_option(Some("control.sock")).is_err());
         assert!(Endpoint::from_option(Some("  ")).is_err());
         assert!(Endpoint::from_option(Some("/tmp/mystique-test.sock")).is_ok());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_socket_in_a_shared_directory_leaves_that_directory_alone() {
+        use std::os::unix::fs::PermissionsExt;
+
+        // `/tmp` is the case that failed: chmod on it is refused, and granting it would
+        // be a system-wide change. A test temp dir behaves the same way.
+        let shared = std::env::temp_dir();
+        let before = std::fs::metadata(&shared).unwrap().permissions().mode();
+        let path = shared.join(format!(
+            "mystique-endpoint-shared-{}.sock",
+            std::process::id()
+        ));
+        let endpoint = Endpoint::from_option(path.to_str()).unwrap();
+
+        endpoint.prepare().unwrap();
+
+        let after = std::fs::metadata(&shared).unwrap().permissions().mode();
+        assert_eq!(before, after, "prepare must not chmod a shared directory");
+        endpoint.cleanup();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_directory_this_process_creates_is_private() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let root =
+            std::env::temp_dir().join(format!("mystique-endpoint-dir-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let endpoint = Endpoint::from_option(root.join("control.sock").to_str()).unwrap();
+
+        endpoint.prepare().unwrap();
+
+        let mode = std::fs::metadata(&root).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o700, "a directory we create is ours to restrict");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_regular_file_on_the_socket_path_is_never_deleted() {
+        let path = std::env::temp_dir().join(format!(
+            "mystique-endpoint-file-{}.sock",
+            std::process::id()
+        ));
+        std::fs::write(&path, b"not a socket").unwrap();
+        let endpoint = Endpoint::from_option(path.to_str()).unwrap();
+
+        let error = endpoint.prepare().unwrap_err();
+
+        assert!(error.contains("not a socket"), "{error}");
+        assert!(
+            path.exists(),
+            "prepare must not delete a file it did not create"
+        );
+        std::fs::remove_file(&path).unwrap();
     }
 }

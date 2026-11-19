@@ -476,14 +476,29 @@ The command space is therefore **mapped, not unmapped**: 24 bytes are accounted 
 and the remaining 232 are neutral on both pipes. What is missing is semantics, not
 inventory.
 
-## Cross-compiling to Linux
+## Building on Linux
+
+The workspace was built natively on Ubuntu 26.04 (`rustc 1.98.0`, `gcc 15.2.0`):
+
+```sh
+cargo build --workspace
+cargo test --workspace
+cargo clippy --workspace --all-targets -- -D warnings
+cargo fmt --all -- --check
+```
+
+Prerequisites: a C toolchain (`cc`) for the vendored libusb, and for `mystique-ui` the
+Tauri Linux stack — `libwebkit2gtk-4.1-dev`, `libgtk-3-dev`, `libsoup-3.0-dev`,
+`libjavascriptcoregtk-4.1-dev`, `librsvg2-dev` and `libayatana-appindicator3-dev`.
+Without those the rest of the workspace still builds with
+`cargo build --workspace --exclude mystique-ui`.
+
+Cross-compiling from Windows is still possible, with the prerequisites below:
 
 ```sh
 rustup target add x86_64-unknown-linux-gnu
 cargo build --release --target x86_64-unknown-linux-gnu
 ```
-
-Two prerequisites, both real:
 
 1. the target's `std` must be installed (`rustup target add`), otherwise cargo fails
    with `E0463: can't find crate for 'core'`;
@@ -491,26 +506,16 @@ Two prerequisites, both real:
    `libusb1-sys` compiles vendored libusb with `cc`. Set `CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER`
    and `CC_x86_64_unknown_linux_gnu` accordingly.
 
-The simplest reliable path on this Windows machine is to build inside WSL2 (where the
-target is native) or to use `cross`:
-
-```sh
-cargo install cross
-cross build --release --target x86_64-unknown-linux-gnu
-```
-
-**Not executed here:** the target is not installed on this machine, and the exact
-failure observed was `E0463: can't find crate for 'core' ... consider downloading the
-target with rustup target add x86_64-unknown-linux-gnu`. Installing a cross toolchain
-is left to whoever builds the Linux artifact.
-
 ## Packaging
 
 `packaging/` contains data files only; nothing in the build consumes them.
 
-- `packaging/linux/99-deepcool-mystique.rules` — `uaccess` ACL plus a `plugdev`
-  fallback. Install to `/etc/udev/rules.d/` and replug.
-- `packaging/linux/mystique.service` — systemd **user** unit running `mystique live`.
+- `../packaging/linux/99-mystique.rules` — `uaccess` ACL and `MODE="0660"` for
+  `3633:0009`. No group is used. Install to `/etc/udev/rules.d/` and replug.
+- `../packaging/linux/mystique-daemon.service` — systemd **user** unit for the daemon,
+  `Restart=on-failure`. The UI is an optional client; the daemon owns the device.
+- `../packaging/linux/README.md` — install steps, and the fact that the vendor
+  `MystiqueService` has no Linux equivalent.
 - `packaging/windows/README.md` — the device is already WinUSB-bound; no INF.
 
 Single-owner is real: a second open gets access-denied. Do not run the CLI and a

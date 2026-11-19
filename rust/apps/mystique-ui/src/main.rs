@@ -16,6 +16,7 @@ mod daemon;
 mod error;
 mod events;
 mod service;
+#[cfg(windows)]
 mod spawn;
 mod startup;
 

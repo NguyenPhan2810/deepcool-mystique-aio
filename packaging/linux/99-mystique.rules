@@ -1,0 +1,29 @@
+# DeepCool MYSTIQUE AIO LCD — USB 3633:0009
+#
+# The panel is USB class 0xFF (vendor-specific) with four bulk endpoints:
+#   OUT 0x01 / IN 0x81   init + device info
+#   OUT 0x02 / IN 0x82   status + telemetry
+# It binds to usbfs for libusb. There is no kernel driver, no hidraw node and no
+# serial port, so this rule only has to make the device node usable by the person
+# sitting at the machine.
+#
+# Why TAG+="uaccess" and not GROUP="plugdev":
+#   uaccess hands a per-device ACL to the user on the *active seat*, through
+#   systemd-logind. The desktop user gets access at login, without joining a group,
+#   without a re-login, and without a rule that also opens the device to every
+#   account on the box. A group rule would need an existing group, membership
+#   applied before the rule runs, and would keep the node open to every member even
+#   when nobody is at the seat. MODE="0660" keeps the node non-world-writable; the
+#   ACL from uaccess supplies the user's read/write access on top of it.
+#
+# Install (see README.md in this directory):
+#   sudo install -Dm644 99-mystique.rules /etc/udev/rules.d/99-mystique.rules
+#   sudo udevadm control --reload-rules
+#   sudo udevadm trigger --subsystem-match=usb --attr-match=idVendor=3633
+# then unplug and replug the panel once.
+#
+# The file name matters: udev applies rules in lexical order and a later match can
+# override an earlier MODE. "99-mystique.rules" sorts after "99-deepcool.rules",
+# so a vendor rule for the same device cannot silently re-open the node.
+
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="3633", ATTR{idProduct}=="0009", TAG+="uaccess", MODE="0660"
