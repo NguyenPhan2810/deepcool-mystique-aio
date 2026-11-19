@@ -39,10 +39,16 @@ mod platform {
     }
 
     pub fn query() -> ServiceSnapshot {
-        match Command::new("sc.exe")
-            .args(["query", SERVICE_NAME])
-            .output()
+        let mut command = Command::new("sc.exe");
+        command.args(["query", SERVICE_NAME]);
+        // The daemon is headless; a console child would flash a window it does not own.
+        #[cfg(windows)]
         {
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+            command.creation_flags(CREATE_NO_WINDOW);
+        }
+        match command.output() {
             Ok(output) => {
                 let text = combined(&output);
                 ServiceSnapshot {

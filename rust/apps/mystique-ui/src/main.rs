@@ -16,6 +16,7 @@ mod daemon;
 mod error;
 mod events;
 mod service;
+mod spawn;
 mod startup;
 
 use app::AppState;

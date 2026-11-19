@@ -53,9 +53,10 @@ mod platform {
     const VALUE: &str = "MystiqueControl";
 
     pub fn read() -> StartupState {
-        let output = Command::new("reg")
-            .args(["query", RUN_KEY, "/v", VALUE])
-            .output();
+        let mut command = Command::new("reg");
+        command.args(["query", RUN_KEY, "/v", VALUE]);
+        crate::spawn::quiet(&mut command);
+        let output = command.output();
         let Ok(output) = output else {
             return StartupState {
                 enabled: false,
@@ -74,16 +75,26 @@ mod platform {
 
     pub fn write(enabled: bool, minimized: bool) -> Result<(), String> {
         let status = if enabled {
-            let command = super::launch_command(minimized)?;
-            Command::new("reg")
-                .args([
-                    "add", RUN_KEY, "/v", VALUE, "/t", "REG_SZ", "/d", &command, "/f",
-                ])
-                .status()
+            let command_line = super::launch_command(minimized)?;
+            let mut command = Command::new("reg");
+            command.args([
+                "add",
+                RUN_KEY,
+                "/v",
+                VALUE,
+                "/t",
+                "REG_SZ",
+                "/d",
+                &command_line,
+                "/f",
+            ]);
+            crate::spawn::quiet(&mut command);
+            command.status()
         } else {
-            Command::new("reg")
-                .args(["delete", RUN_KEY, "/v", VALUE, "/f"])
-                .status()
+            let mut command = Command::new("reg");
+            command.args(["delete", RUN_KEY, "/v", VALUE, "/f"]);
+            crate::spawn::quiet(&mut command);
+            command.status()
         };
         match status {
             Ok(status) if status.success() || !enabled => Ok(()),

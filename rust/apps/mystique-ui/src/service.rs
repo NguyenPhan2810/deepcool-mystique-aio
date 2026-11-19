@@ -61,10 +61,10 @@ mod platform {
     /// still not stopped, but it is also not holding the interface for long; the stop
     /// path polls until RUNNING disappears.
     fn running() -> bool {
-        match Command::new("sc.exe")
-            .args(["query", SERVICE_NAME])
-            .output()
-        {
+        let mut command = Command::new("sc.exe");
+        command.args(["query", SERVICE_NAME]);
+        crate::spawn::quiet(&mut command);
+        match command.output() {
             Ok(output) => {
                 let text = combined(&output);
                 text.lines().any(|line| line.contains("RUNNING"))
@@ -74,8 +74,10 @@ mod platform {
     }
 
     pub fn stop() -> Result<String, String> {
-        let output = Command::new("sc.exe")
-            .args(["stop", SERVICE_NAME])
+        let mut command = Command::new("sc.exe");
+        command.args(["stop", SERVICE_NAME]);
+        crate::spawn::quiet(&mut command);
+        let output = command
             .output()
             .map_err(|error| format!("could not run sc.exe: {error}"))?;
         let text = combined(&output);
@@ -96,8 +98,10 @@ mod platform {
     }
 
     pub fn start() -> Result<String, String> {
-        let output = Command::new("sc.exe")
-            .args(["start", SERVICE_NAME])
+        let mut command = Command::new("sc.exe");
+        command.args(["start", SERVICE_NAME]);
+        crate::spawn::quiet(&mut command);
+        let output = command
             .output()
             .map_err(|error| format!("could not run sc.exe: {error}"))?;
         let text = combined(&output);
