@@ -27,11 +27,19 @@ fn main() -> ExitCode {
     let options = cli::Options::parse();
 
     if options.service {
+        #[cfg(windows)]
         eprintln!(
             "mystique-daemon: --service is not implemented in this build. The binary is a \
              console application and does not call StartServiceCtrlDispatcher.\n\
              Run it from Task Scheduler or a service wrapper; see \
              rust/packaging/windows/README.md."
+        );
+        #[cfg(not(windows))]
+        eprintln!(
+            "mystique-daemon: --service is a Windows service mode and does not exist on this \
+             platform. Run the daemon under the systemd user unit in \
+             packaging/linux/mystique-daemon.service; there is no vendor service to defer to, \
+             and nothing needs root."
         );
         return ExitCode::from(2);
     }

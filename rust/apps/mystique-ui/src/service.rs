@@ -9,6 +9,10 @@
 //! `service_running` and the `sc.exe query` text in every `DeviceState`. A local query
 //! remains only to wait for a start or stop to take effect.
 
+/// The vendor service only exists on Windows. The rest of the module still exports
+/// [`stop`] and [`start`] everywhere so the command layer does not need its own `cfg`;
+/// on Linux they answer with a typed "unsupported" message.
+#[cfg(windows)]
 pub const SERVICE_NAME: &str = "MystiqueService";
 
 /// Stops the service and waits up to five seconds for it to leave `RUNNING`.

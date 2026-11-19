@@ -1,0 +1,33 @@
+[Unit]
+Description=DeepCool MYSTIQUE LCD daemon (owns the panel, streams telemetry)
+Documentation=file:///%h/.local/share/doc/mystique/README.md
+# A *user* unit, not a system unit. The panel is a display, the udev rule grants
+# access to the user on the active seat, and nothing the daemon does needs root.
+# Install the binary at ~/.local/bin/mystique-daemon, or change ExecStart below.
+#
+# There is no vendor-service equivalent on Linux: MystiqueService is a Windows
+# service and has no Linux build. This unit replaces it. Exactly one process may
+# hold the device, and that process is this daemon.
+After=default.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/mystique-daemon
+# The single-instance lock is released with the process and the worker retries any
+# transient USB fault, so a restart never fights a stale owner. A missing or
+# unplugged panel does not exit the daemon; it keeps retrying and the stream
+# resumes when the device enumerates.
+Restart=on-failure
+RestartSec=2s
+# SIGTERM stops the stream, blanks the panel, releases the handle and removes the
+# socket. Give a slow USB write time to finish.
+KillSignal=SIGTERM
+TimeoutStopSec=10s
+
+[Install]
+WantedBy=default.target
+
+# The desktop UI is optional. It is a client: it connects to the control socket,
+# reads telemetry events and sends commands. Closing it does not stop the daemon,
+# and starting it when the daemon is already running never takes the panel away
+# from the daemon. Nothing in this unit depends on the UI being installed.

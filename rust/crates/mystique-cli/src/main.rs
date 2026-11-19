@@ -534,7 +534,8 @@ fn open_device() -> Result<MystiqueDevice> {
         Err(DeviceError::AccessDenied) => bail!(
             "access denied: another process owns the device.\n\
              Windows: stop MystiqueService and close DeepCool.exe.\n\
-             Linux: install packaging/linux/99-deepcool-mystique.rules and replug."
+             Linux: install packaging/linux/99-mystique.rules and replug \
+             (see packaging/linux/README.md)."
         ),
         Err(error) => Err(error).context("opening the device"),
     }

@@ -47,7 +47,10 @@ fn cpu_names() -> Vec<String> {
 }
 
 /// Non-empty, trimmed lines with duplicates removed; the first occurrence wins.
-#[cfg(any(windows, target_os = "linux"))]
+///
+/// Only the Windows probe yields whole lines. The Linux probe parses `lspci -mm` into
+/// fields and deduplicates afterwards, so this helper is not built there.
+#[cfg(windows)]
 fn clean_lines(text: &str) -> Vec<String> {
     let mut names: Vec<String> = Vec::new();
     for line in text.lines() {
@@ -159,7 +162,7 @@ fn gpu_names() -> Vec<String> {
 mod tests {
     use super::*;
 
-    #[cfg(any(windows, target_os = "linux"))]
+    #[cfg(windows)]
     #[test]
     fn lines_are_trimmed_and_duplicates_keep_their_first_position() {
         let text = "NVIDIA GeForce RTX 4070\r\n\r\n Intel(R) UHD Graphics 770 \n\

@@ -34,10 +34,18 @@ impl InstanceLock {
     /// long as the returned value lives.
     pub fn acquire(path: &Path) -> Result<Self, LockError> {
         if let Some(parent) = path.parent() {
+            let existed = parent.exists();
             std::fs::create_dir_all(parent).map_err(|source| LockError::Io {
                 path: path.to_path_buf(),
                 source,
             })?;
+            // The lock lives in the per-user control directory, beside the socket. A
+            // directory this call created is restricted to 0700 for the same reason the
+            // socket is 0600: both are ours. An existing directory (a test temp dir, a
+            // path the user chose) is left alone.
+            if !existed {
+                restrict_dir(parent);
+            }
         }
         let file = OpenOptions::new()
             .create(true)
@@ -98,6 +106,15 @@ fn restrict(file: &File) {
     use std::os::unix::fs::PermissionsExt;
 
     let _ = file.set_permissions(std::fs::Permissions::from_mode(0o600));
+}
+
+/// A directory this process created holds the lock and the socket; nobody else needs to
+/// list or traverse it.
+#[cfg(unix)]
+fn restrict_dir(dir: &Path) {
+    use std::os::unix::fs::PermissionsExt;
+
+    let _ = std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700));
 }
 
 #[cfg(windows)]

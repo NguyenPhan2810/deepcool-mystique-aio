@@ -302,8 +302,10 @@ cargo fmt --all -- --check
 
 ## Packaging
 
-- `rust/packaging/linux/mystique-daemon.service` — user unit, restart on failure.
-- `rust/packaging/windows/README.md` — running it as a service; the native wrapper is
+- `packaging/linux/mystique-daemon.service` — systemd user unit, restart on failure.
+  The udev rule beside it (`packaging/linux/99-mystique.rules`) is what grants the
+  seated user access to `3633:0009`.
+- `packaging/windows/README.md` — running it as a service; the native wrapper is
   not implemented in this pass.
 
 ## Next step
