@@ -39,6 +39,11 @@ The daemon prints its endpoint and period on stderr and holds the panel until Ct
 UI attaches to it and never terminates it (it did not start it). Close the window and the
 stream keeps running; reopen the window and the state is there.
 
+The UI is a Windows GUI-subsystem binary in **all** profiles, so launching it never opens a
+console. When the UI starts the daemon itself, the daemon's stderr goes to
+`%LOCALAPPDATA%\mystique\daemon.log` (Linux: `$XDG_STATE_HOME/mystique/daemon.log`), which
+is where a failed start is diagnosed. The log is appended, not rotated.
+
 The frontend is static files in `ui/`: `index.html`, split stylesheets in `styles/`, and
 ES modules in `js/`. Fonts are local WOFF2 files in `ui/fonts/`. `tauri.conf.json` sets
 `build.frontendDist` to `ui`, so the files are embedded in the binary through

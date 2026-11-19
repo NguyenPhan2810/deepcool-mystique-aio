@@ -80,13 +80,13 @@ impl Launcher {
             }
         }
         command.stdin(Stdio::null()).stdout(Stdio::null());
-        // In development the daemon's banner and retry lines are the fastest way to see
-        // what it is doing, so a debug build lets stderr through to the terminal that
-        // started the UI. A release build has no console to inherit.
-        #[cfg(debug_assertions)]
-        command.stderr(Stdio::inherit());
-        #[cfg(not(debug_assertions))]
-        command.stderr(Stdio::null());
+        // A headless daemon has no terminal to talk to. Its banner and retry lines go to a
+        // log file beside the settings, which is where a failed start is diagnosed; an
+        // inherited stderr would open a console for every launch of a GUI app.
+        command.stderr(match log_file() {
+            Some(file) => Stdio::from(file),
+            None => Stdio::null(),
+        });
         command
     }
 
@@ -95,6 +95,25 @@ impl Launcher {
             .spawn()
             .map_err(|error| format!("could not start {}: {error}", self.program.display()))
     }
+}
+
+/// Per-user daemon log. Appended, because two lines per start is cheaper to keep than to
+/// rotate; a runaway daemon is a separate problem.
+fn log_file() -> Option<std::fs::File> {
+    let base = std::env::var_os("LOCALAPPDATA")
+        .map(std::path::PathBuf::from)
+        .or_else(|| std::env::var_os("XDG_STATE_HOME").map(std::path::PathBuf::from))
+        .or_else(|| {
+            std::env::var_os("HOME")
+                .map(|home| std::path::PathBuf::from(home).join(".local").join("state"))
+        })?;
+    let directory = base.join("mystique");
+    std::fs::create_dir_all(&directory).ok()?;
+    std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(directory.join("daemon.log"))
+        .ok()
 }
 
 /// What this window has done about the daemon process, shared with the UI. Cloning is

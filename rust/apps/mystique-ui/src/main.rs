@@ -8,7 +8,7 @@
 //! npm and no dev server. `cargo build -p mystique-ui` is the whole build.
 
 #![forbid(unsafe_code)]
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#![cfg_attr(windows, windows_subsystem = "windows")]
 
 mod app;
 mod commands;
