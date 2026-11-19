@@ -3,9 +3,9 @@
 //! Two modes:
 //!
 //! - [`MockTransport::device`] is a small state machine: it answers like the real
-//!   device, tracks rotation from `0x02`, tracks the mode byte from `0x0A`, echoes
-//!   `0x00` for `0x15`/`0x16`/`0x17`/`0x0A`, and returns a synthetic identifier for
-//!   `0x12`.
+//!   device, tracks rotation from `0x02`, enters machine-info mode when the `0x0A`
+//!   clock arrives, echoes `0x00` for `0x15`/`0x16`/`0x17`/`0x0A`, and returns a
+//!   synthetic identifier for `0x12`.
 //! - [`MockTransport::scripted`] asserts an exact command/payload sequence and returns
 //!   whatever each step says, including timeouts and stalls.
 //!
@@ -15,7 +15,7 @@
 use std::collections::VecDeque;
 use std::time::Duration;
 
-use mystique_protocol::commands::MODE_SWITCH_PREFIX;
+use mystique_protocol::commands::TIME_HEADER;
 use mystique_protocol::packet::checksum16;
 
 use crate::error::{DeviceError, Transfer};
@@ -153,11 +153,11 @@ impl MockTransport {
     fn apply_state(&mut self, command: u8, payload: &[u8]) {
         match command {
             0x02 if payload.len() >= 3 => self.rotation = payload[2].min(3),
-            // The 360 sends one 0x0A payload shape everywhere, so the payload alone
-            // cannot distinguish modes. The mock keeps its old convenience: 0x0A
-            // enters machine-info mode until an upload begins, after which the
-            // vendor's keepalive 0x0A must not leave image mode.
-            0x0A if payload.starts_with(&MODE_SWITCH_PREFIX) && !self.uploading => self.mode = 0xFF,
+            // 0x0A is the clock, and the payload is the same shape everywhere. The mock
+            // keeps its old convenience: the clock arriving enters machine-info mode
+            // until an upload begins, after which the vendor's keepalive 0x0A must not
+            // leave image mode. Detection is the clock header, never a counter.
+            0x0A if payload.starts_with(&TIME_HEADER) && !self.uploading => self.mode = 0xFF,
             0x0F => {
                 self.mode = 0x00;
                 self.uploading = true;

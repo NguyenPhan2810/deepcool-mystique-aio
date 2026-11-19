@@ -13,7 +13,9 @@ use mystique_ipc::{
     codes, hex, CommandError, PacketRecord, PlanCommandSummary, UploadKind, UploadPlanSummary,
 };
 use mystique_media::{FitMode, LoadedMedia, PANEL_HEIGHT, PANEL_WIDTH};
-use mystique_protocol::{build_upload_plan, ContentId, Operation, UploadFrame, UploadRequest};
+use mystique_protocol::{
+    build_upload_plan, Clock, ContentId, Operation, UploadFrame, UploadRequest,
+};
 
 use crate::error;
 use crate::panel::Panel;
@@ -73,17 +75,20 @@ pub fn fresh_content_id(frames: &[UploadFrame]) -> ContentId {
     ContentId::for_upload(frames.iter().map(|frame| frame.jpeg.as_slice()), &nonce)
 }
 
-/// Builds the plan and the summary from one frame set.
+/// Builds the plan and the summary from one frame set and the clock reading the `0x0A`
+/// packets will carry.
 pub fn make_plan(
     settings: &Settings,
     path: &Path,
     media: &LoadedMedia,
     content_id: ContentId,
+    clock: Clock,
 ) -> Result<(Vec<Operation>, UploadPlanSummary), CommandError> {
     let rotation = settings.display.rotation();
     let frames = media.frames.clone();
     let request = UploadRequest::new(rotation, frames)
         .with_labels(settings.labels.clone())
+        .with_clock(clock)
         .with_content_id(content_id);
     let plan = build_upload_plan(&request).map_err(|error| {
         CommandError::new(codes::UPLOAD, error.to_string())
@@ -248,8 +253,14 @@ mod tests {
         let frames = vec![UploadFrame::new(jpeg())];
         let content_id = ContentId::for_jpegs(frames.iter().map(|frame| frame.jpeg.as_slice()));
         let media = sample_media(frames);
-        let (plan, summary) =
-            make_plan(&settings, Path::new("panel.png"), &media, content_id).unwrap();
+        let (plan, summary) = make_plan(
+            &settings,
+            Path::new("panel.png"),
+            &media,
+            content_id,
+            Clock::zero(),
+        )
+        .unwrap();
 
         assert_eq!(summary.frames, 1);
         assert_eq!(summary.kind, UploadKind::Image);
@@ -285,6 +296,7 @@ mod tests {
             Path::new("anim.gif"),
             &sample_media(frames),
             content_id,
+            Clock::zero(),
         )
         .unwrap();
         assert_eq!(summary.kind, UploadKind::Gif);

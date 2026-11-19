@@ -6,9 +6,9 @@
 use std::path::PathBuf;
 
 use mystique_protocol::{
-    build_packet, checksum16, init::machine_info_sequence_with, parse_status, DeviceInfo,
+    build_packet, checksum16, init::machine_info_sequence_with, parse_status, Clock, DeviceInfo,
     DisplayAreas, DisplayMode, MachineLabels, Response, ResultCode, Rotation, DCLD_KIND_ANIMATED,
-    DCLD_KIND_STATIC,
+    DCLD_KIND_STATIC, TIME_HEADER, TIME_PAYLOAD_LEN,
 };
 use serde_json::Value;
 
@@ -115,10 +115,35 @@ fn init_sequence_matches_the_360_capture() {
         .expect("the capture starts with 0x12");
     let captured = &commands[start..start + 13];
 
+    // The captured 0x0A payload is the clock reading at that moment. Feed those five
+    // values back through the encoder, so this test proves the header, the payload
+    // length and the field order rather than pinning one frozen date.
+    let clock_payload = captured
+        .iter()
+        .find(|command| command["cmd"].as_u64() == Some(0x0A))
+        .map(|command| unhex(command["payload"].as_str().unwrap()))
+        .expect("the captured block ends with the clock");
+    assert!(clock_payload.len() >= TIME_PAYLOAD_LEN);
+    assert_eq!(&clock_payload[..2], &TIME_HEADER);
+    // The five values must be a plausible local time, which is what makes the field
+    // order meaningful rather than just self-consistent.
+    assert!((1..=12).contains(&clock_payload[2]), "month");
+    assert!((1..=31).contains(&clock_payload[3]), "day");
+    assert!(clock_payload[4] < 24, "hour");
+    assert!(clock_payload[5] < 60, "minute");
+    assert!(clock_payload[6] < 60, "second");
+    let clock = Clock::new(
+        clock_payload[2],
+        clock_payload[3],
+        clock_payload[4],
+        clock_payload[5],
+        clock_payload[6],
+    );
+
     let steps = machine_info_sequence_with(
         Rotation::ZERO,
         &MachineLabels::default(),
-        0x2C3A,
+        clock,
         DisplayAreas::default(),
     );
     assert_eq!(captured.len(), steps.len());

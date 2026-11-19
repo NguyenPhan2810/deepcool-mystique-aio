@@ -7,6 +7,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use mystique_ipc::Event;
+use mystique_protocol::{Clock, TIME_HEADER, TIME_PAYLOAD_LEN};
 use mystique_sensors::SensorSample;
 
 use support::{build_core, fast_config, has_state_event, telemetry_frame, ProviderState};
@@ -41,7 +42,37 @@ fn a_missing_device_is_retried_then_initialised_once() {
         &[0],
         "init runs with the session rotation"
     );
+    let init_clock = state.init_clocks.lock().unwrap()[0];
+    assert_ne!(
+        init_clock,
+        Clock::zero(),
+        "init carries the live local time, not the no-clock value"
+    );
     assert!(core.state().last_error.is_none());
+}
+
+#[test]
+fn the_clock_packet_carries_a_real_calendar_reading() {
+    let state = Arc::new(ProviderState::new());
+    let now = Instant::now();
+    let mut core = build_core(state.clone(), SensorSample::default(), fast_config(), now);
+    core.tick(now);
+
+    let payload = state
+        .last_payload(0x0A)
+        .expect("the first tick sends the clock");
+    assert_eq!(payload.len(), TIME_PAYLOAD_LEN);
+    assert_eq!(&payload[..2], &TIME_HEADER);
+    let (month, day, hour, minute, second) =
+        (payload[2], payload[3], payload[4], payload[5], payload[6]);
+    assert!((1..=12).contains(&month), "month {month}");
+    assert!((1..=31).contains(&day), "day {day}");
+    assert!(hour < 24 && minute < 60 && second < 60);
+    assert_ne!(
+        [month, day, hour, minute, second],
+        [0, 0, 0, 0, 0],
+        "the packet is the wall clock, not the explicit zero value"
+    );
 }
 
 #[test]

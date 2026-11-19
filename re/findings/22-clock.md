@@ -49,11 +49,14 @@ frame. It is a separate command on the same bulk pipe, one 48-byte packet per se
   even with the stream stopped.
 - `time_payload` in the protocol crate builds the seven bytes; `TIME_HEADER` is `EA 07`.
 
+## Follow-up
+
+- The init sequence and the upload preamble no longer carry the captured 2026-11-18
+  payload. Both take a `Clock`; the daemon passes the live local time, and callers with
+  no clock source (tests, fixtures, CLI dry runs) pass an explicit `Clock::zero()`.
+  `mode_switch_payload` and `MODE_SWITCH_PREFIX` are gone.
+
 ## Still open
 
-- The init sequence and the upload preamble still carry the captured 2026-11-18 payload.
-  The periodic clock corrects the panel within a second, so the visible effect is at most a
-  brief wrong date during startup or an upload. Making those call sites take the current
-  time is a mechanical follow-up, not a protocol question.
 - Whether the panel keeps time across a USB reset or a power cycle is untested. It is
   pushed every second while the daemon runs, so it does not matter in practice.

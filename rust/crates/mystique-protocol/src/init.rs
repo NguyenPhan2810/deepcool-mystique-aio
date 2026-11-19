@@ -4,10 +4,11 @@
 //! (`re/captures/upload-decoded.json`), not from the 240 prior art. The order is the
 //! same; `0x07` and the init `0x08` are empty on this unit, `0x04` carries the
 //! display-area selectors (all zeros in the capture), `0x15`/`0x16` are ASCII text
-//! labels, and `0x0A` is a fixed prefix plus an incrementing counter.
+//! labels, and `0x0A` carries the local date and time (`re/findings/22-clock.md`).
 
 use std::time::Duration;
 
+use crate::clock::Clock;
 use crate::commands::*;
 use crate::display::{DisplayAreas, DisplayConfig, RecordingConfig};
 use crate::rotation::Rotation;
@@ -87,20 +88,23 @@ impl MachineLabels {
     }
 }
 
-/// The 13-command sequence with the vendor's `--` labels, heartbeat counter 0 and the
+/// The 13-command sequence with the vendor's `--` labels, [`Clock::zero`] and the
 /// default display areas (main `00` CPU Frequency, Style Type `00` Normal, aux `00`
 /// Voltage Mode).
+///
+/// `Clock::zero` is the explicit "no clock source" value for fixtures and dry runs; the
+/// daemon uses [`machine_info_sequence_full`] with the live local time.
 pub fn machine_info_sequence(rotation: Rotation) -> Vec<InitStep> {
     machine_info_sequence_with(
         rotation,
         &MachineLabels::default(),
-        0,
+        Clock::zero(),
         DisplayAreas::default(),
     )
 }
 
 /// The 13-command sequence, in the observed order, with caller-supplied labels, the
-/// starting value of the `0x0A` counter and the display areas to carry in `0x04`.
+/// clock reading for `0x0A` and the display areas to carry in `0x04`.
 ///
 /// This helper keeps the captured `0x02` block byte-exact: gyro enabled and brightness
 /// 70, with only the rotation replaced. Use [`machine_info_sequence_full`] when the
@@ -108,38 +112,32 @@ pub fn machine_info_sequence(rotation: Rotation) -> Vec<InitStep> {
 ///
 /// The order is not ascending and has been stable across captures; do not sort it.
 /// Rotation enters at step 2, as payload byte 2 of `0x02`. `0x04` carries
-/// `[main, style, 0, aux]`; the captured block has all three values at `00`. The `0x0A`
-/// counter is a caller-supplied sequence number because its purpose is unknown.
+/// `[main, style, 0, aux]`; the captured block has all three values at `00`.
 pub fn machine_info_sequence_with(
     rotation: Rotation,
     labels: &MachineLabels,
-    heartbeat: u16,
+    clock: Clock,
     areas: DisplayAreas,
 ) -> Vec<InitStep> {
     let display = DisplayConfig::default()
         .with_gyro(true)
         .with_rotation(rotation);
-    machine_info_sequence_full(
-        display,
-        RecordingConfig::default(),
-        labels,
-        heartbeat,
-        areas,
-    )
+    machine_info_sequence_full(display, RecordingConfig::default(), labels, clock, areas)
 }
 
 /// The 13-command sequence with the caller's complete `0x02` and `0x05` state.
 ///
 /// `0x02` is absolute state, so a reconnect must carry the session's idle, gyro,
 /// rotation, RGB and brightness values rather than resetting them to the captured
-/// defaults. `0x05` carries the two recording graph options. This is the sequence the
-/// daemon sends; [`machine_info_sequence`] and [`machine_info_sequence_with`] remain the
-/// byte-exact capture helpers.
+/// defaults. `0x05` carries the two recording graph options. `0x0A` carries `clock`, the
+/// live local time; a caller with no clock source passes [`Clock::zero`]. This is the
+/// sequence the daemon sends; [`machine_info_sequence`] and
+/// [`machine_info_sequence_with`] remain the capture helpers.
 pub fn machine_info_sequence_full(
     display: DisplayConfig,
     recording: RecordingConfig,
     labels: &MachineLabels,
-    heartbeat: u16,
+    clock: Clock,
     areas: DisplayAreas,
 ) -> Vec<InitStep> {
     vec![
@@ -155,11 +153,7 @@ pub fn machine_info_sequence_full(
         InitStep::new(Command::InitStep15, labels.cpu_payload(), SETTLE_STEP),
         InitStep::new(Command::InitStep16, labels.gpu_payload(), SETTLE_STEP),
         InitStep::new(Command::InitStep17, labels.machine_payload(), SETTLE_STEP),
-        InitStep::new(
-            Command::ModeSwitch,
-            mode_switch_payload(heartbeat),
-            SETTLE_MODE_SWITCH,
-        ),
+        InitStep::new(Command::ModeSwitch, clock.payload(), SETTLE_MODE_SWITCH),
     ]
 }
 
@@ -203,17 +197,22 @@ mod tests {
         assert_eq!(steps[9].payload, b"--");
         assert_eq!(steps[10].payload, b"--");
         assert_eq!(steps[11].payload, b"--");
-        // The first captured block ends with EA 07 0B 12 0A 2C 3A.
-        assert_eq!(
-            steps[12].payload,
-            vec![0xEA, 0x07, 0x0B, 0x12, 0x0A, 0x00, 0x00]
-        );
+        // `machine_info_sequence` has no clock source, so `0x0A` carries the explicit
+        // zero reading: the header, then five zeros. It never carries a frozen date.
+        assert_eq!(steps[12].payload.len(), TIME_PAYLOAD_LEN);
+        assert_eq!(&steps[12].payload[..2], &TIME_HEADER);
+        assert!(steps[12].payload[2..].iter().all(|byte| *byte == 0));
     }
 
     #[test]
     fn init_0x04_carries_the_display_area_layout() {
         let areas = DisplayAreas::new(0x03, 0x01, 0x02).unwrap();
-        let steps = machine_info_sequence_with(Rotation::ZERO, &MachineLabels::default(), 0, areas);
+        let steps = machine_info_sequence_with(
+            Rotation::ZERO,
+            &MachineLabels::default(),
+            Clock::zero(),
+            areas,
+        );
         assert_eq!(steps[3].command, Command::InitStep04);
         assert_eq!(steps[3].payload, vec![0x03, 0x01, 0x00, 0x02]);
         assert_eq!(steps[3].payload, areas.payload());
@@ -238,7 +237,7 @@ mod tests {
             display,
             recording,
             &MachineLabels::default(),
-            0,
+            Clock::zero(),
             DisplayAreas::default(),
         );
         assert_eq!(steps[1].payload, vec![0x00, 0x00, 0x03, 0x00, 0x24]);
@@ -255,7 +254,7 @@ mod tests {
         let steps = machine_info_sequence_with(
             Rotation::ZERO,
             &MachineLabels::default(),
-            0,
+            Clock::zero(),
             DisplayAreas::default(),
         );
         assert_eq!(steps[1].payload, vec![0x01, 0x01, 0x00, 0x00, 0x46]);
@@ -265,8 +264,12 @@ mod tests {
     #[test]
     fn cpu_and_gpu_labels_are_written_as_ascii() {
         let labels = MachineLabels::new("Intel Core i9-14900K", "NVIDIA GeForce RTX 4070");
-        let steps =
-            machine_info_sequence_with(Rotation::ZERO, &labels, 0x2C3A, DisplayAreas::default());
+        let steps = machine_info_sequence_with(
+            Rotation::ZERO,
+            &labels,
+            Clock::zero(),
+            DisplayAreas::default(),
+        );
         assert_eq!(steps[9].payload, b"Intel Core i9-14900K");
         assert_eq!(steps[10].payload, b"NVIDIA GeForce RTX 4070");
         assert_eq!(steps[11].payload, b"--");
@@ -275,7 +278,7 @@ mod tests {
         let steps = machine_info_sequence_with(
             Rotation::ZERO,
             &MachineLabels::new(&long, &long),
-            0,
+            Clock::zero(),
             DisplayAreas::default(),
         );
         assert_eq!(steps[9].payload.len(), LABEL_MAX_LEN);
@@ -283,17 +286,17 @@ mod tests {
     }
 
     #[test]
-    fn heartbeat_lands_in_the_last_two_bytes_of_the_mode_switch() {
+    fn the_clock_lands_at_its_own_offsets_in_the_clock_payload() {
         let steps = machine_info_sequence_with(
             Rotation::ZERO,
             &MachineLabels::default(),
-            0x2D01,
+            Clock::new(3, 7, 21, 45, 9),
             DisplayAreas::default(),
         );
-        assert_eq!(
-            steps[12].payload,
-            vec![0xEA, 0x07, 0x0B, 0x12, 0x0A, 0x2D, 0x01]
-        );
+        assert_eq!(steps[12].command, Command::ModeSwitch);
+        assert_eq!(steps[12].payload, vec![0xEA, 0x07, 3, 7, 21, 45, 9]);
+        assert_eq!(steps[12].payload.len(), TIME_PAYLOAD_LEN);
+        assert_eq!(&steps[12].payload[..2], &TIME_HEADER);
     }
 
     #[test]
@@ -305,7 +308,7 @@ mod tests {
             assert_eq!(
                 step.command.code() == 0x0A,
                 step.command.requires_payload(),
-                "only the mode switch needs a payload"
+                "only the clock needs a payload"
             );
         }
     }

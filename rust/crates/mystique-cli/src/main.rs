@@ -23,9 +23,9 @@ use clap::{Args, Parser, Subcommand};
 use mystique_media as image;
 use mystique_protocol::{
     build_upload_plan, commands::CMD_DEVICE_INFO, rotate_with_gyro_off, set_brightness,
-    set_display_areas, set_gyro, set_idle_screen, set_media_timing, CommandPacket, ContentId,
-    DeviceInfo, DisplayAreas, MachineLabels, MediaTiming, Operation, Pipe, ResultCode, Rotation,
-    TelemetryFrame, UploadRequest,
+    set_display_areas, set_gyro, set_idle_screen, set_media_timing, Clock, CommandPacket,
+    ContentId, DeviceInfo, DisplayAreas, MachineLabels, MediaTiming, Operation, Pipe, ResultCode,
+    Rotation, TelemetryFrame, UploadRequest,
 };
 use mystique_usb::{DeviceError, Link, MystiqueDevice};
 
@@ -688,8 +688,10 @@ fn run_init(
 ) -> Result<()> {
     println!("Machine Info handshake, rotation {rotation}");
     println!("labels: CPU {:?}  GPU {:?}", labels.cpu, labels.gpu);
+    // The CLI has no clock source. `Clock::zero` is the explicit unknown; the daemon
+    // replaces it with the live time within a second of its own `0x0A`.
     let outcomes = link
-        .init_with(rotation, labels, 0, DisplayAreas::default())
+        .init_with(rotation, labels, Clock::zero(), DisplayAreas::default())
         .context("running init")?;
     for outcome in &outcomes {
         println!(
@@ -811,6 +813,8 @@ fn upload(
         ContentId::for_upload(frames.iter().map(|frame| frame.jpeg.as_slice()), &nonce);
     let request = UploadRequest::new(rotation, frames)
         .with_labels(labels.clone())
+        // No clock source in the CLI: the explicit unknown, not a frozen capture date.
+        .with_clock(Clock::zero())
         .with_content_id(content_id);
     let plan = build_upload_plan(&request)?;
 

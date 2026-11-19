@@ -9,19 +9,21 @@
 
 use mystique_ipc::{CommandError, DeviceInfo};
 use mystique_protocol::{
-    Command, DisplayAreas, DisplayConfig, MachineLabels, Operation, PanelStatus, Pipe,
+    Clock, Command, DisplayAreas, DisplayConfig, MachineLabels, Operation, PanelStatus, Pipe,
     RecordingConfig, Response, TelemetryFrame,
 };
 use mystique_usb::{DeviceError, DeviceSummary, Link, MystiqueDevice};
 
 /// One connected panel. Every method is a real transfer on the real implementation.
 pub trait Panel: Send {
-    /// The 13-command machine-info handshake, with the documented settle delays.
+    /// The 13-command machine-info handshake, with the documented settle delays and the
+    /// clock reading that goes into `0x0A`.
     fn init(
         &mut self,
         display: DisplayConfig,
         recording: RecordingConfig,
         labels: &MachineLabels,
+        clock: Clock,
         areas: DisplayAreas,
     ) -> Result<(), DeviceError>;
     /// One `0x01` frame.
@@ -79,10 +81,11 @@ impl Panel for RealPanel {
         display: DisplayConfig,
         recording: RecordingConfig,
         labels: &MachineLabels,
+        clock: Clock,
         areas: DisplayAreas,
     ) -> Result<(), DeviceError> {
         self.link
-            .init_with_config(display, recording, labels, 0, areas)
+            .init_with_config(display, recording, labels, clock, areas)
             .map(|_| ())
     }
 

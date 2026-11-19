@@ -17,7 +17,7 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 use mystique_ipc::{codes, CommandError, DeviceState, Event, SettingsState, TelemetryStatus};
-use mystique_protocol::Command;
+use mystique_protocol::{Clock, Command};
 use mystique_sensors::Sampler;
 
 use crate::environment::{HostEnvironment, ServiceSnapshot};
@@ -219,15 +219,8 @@ impl Core {
         let Some(panel) = self.panel.as_mut() else {
             return;
         };
-        let stamp = local_stamp();
-        let payload = mystique_protocol::time_payload(
-            stamp.month,
-            stamp.day,
-            stamp.hour,
-            stamp.minute,
-            stamp.second,
-        );
-        let _ = panel.send(mystique_protocol::Command::ModeSwitch, &payload);
+        let payload = local_clock().payload();
+        let _ = panel.send(Command::ModeSwitch, &payload);
         self.next_clock = now + Duration::from_secs(1);
     }
 
@@ -253,6 +246,7 @@ impl Core {
                 self.settings.display,
                 self.settings.recording,
                 &self.settings.labels,
+                local_clock(),
                 self.settings.areas,
             )
             .map_err(crate::error::from_device)?;
@@ -377,26 +371,21 @@ pub fn advance(deadline: Instant, now: Instant, interval: Duration) -> Instant {
     }
 }
 
-/// The local wall clock, as the five bytes `0x0A` carries. Local, not UTC: the vendor
+/// The local wall clock as the protocol crate's [`Clock`]. Local, not UTC: the vendor
 /// app sends local time and the panel draws it verbatim.
-struct LocalStamp {
-    month: u8,
-    day: u8,
-    hour: u8,
-    minute: u8,
-    second: u8,
-}
-
-fn local_stamp() -> LocalStamp {
+///
+/// This is the daemon's only conversion. The init handshake, the upload preamble and the
+/// once-a-second `0x0A` all use it, so the panel cannot be told two different dates.
+pub(crate) fn local_clock() -> Clock {
     use chrono::{Datelike, Local, Timelike};
     let now = Local::now();
-    LocalStamp {
-        month: now.month() as u8,
-        day: now.day() as u8,
-        hour: now.hour() as u8,
-        minute: now.minute() as u8,
-        second: now.second() as u8,
-    }
+    Clock::new(
+        now.month() as u8,
+        now.day() as u8,
+        now.hour() as u8,
+        now.minute() as u8,
+        now.second() as u8,
+    )
 }
 
 /// Exponential backoff, capped: base, 2×base, 4×base, … `max`.

@@ -15,7 +15,7 @@ use mystique_daemon::panel::{DeviceProvider, Panel};
 use mystique_daemon::state::Settings;
 use mystique_ipc::{codes, CommandError, DeviceInfo, Event, FrameValues, Request};
 use mystique_protocol::{
-    checksum16, Command, DisplayAreas, DisplayConfig, DisplayMode, MachineLabels, Operation,
+    checksum16, Clock, Command, DisplayAreas, DisplayConfig, DisplayMode, MachineLabels, Operation,
     PanelStatus, Pipe, RecordingConfig, Response, ResultCode, Rotation, TelemetryFrame,
 };
 use mystique_sensors::SensorSample;
@@ -46,6 +46,7 @@ pub struct ProviderState {
     pub init_recordings: Mutex<Vec<RecordingConfig>>,
     pub init_labels: Mutex<Vec<MachineLabels>>,
     pub init_areas: Mutex<Vec<DisplayAreas>>,
+    pub init_clocks: Mutex<Vec<Clock>>,
 }
 
 impl ProviderState {
@@ -106,6 +107,7 @@ impl Panel for FakePanel {
         display: DisplayConfig,
         recording: RecordingConfig,
         labels: &MachineLabels,
+        clock: Clock,
         areas: DisplayAreas,
     ) -> Result<(), DeviceError> {
         self.state.inits.fetch_add(1, Ordering::SeqCst);
@@ -123,6 +125,9 @@ impl Panel for FakePanel {
         }
         if let Ok(mut recorded) = self.state.init_areas.lock() {
             recorded.push(areas);
+        }
+        if let Ok(mut recorded) = self.state.init_clocks.lock() {
+            recorded.push(clock);
         }
         // The labels are part of the handshake; record that they were non-empty.
         debug_assert!(!labels.cpu.is_empty());

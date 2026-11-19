@@ -37,8 +37,9 @@ pub const CMD_TELEMETRY: u8 = 0x01;
 pub const CMD_DISPLAY_CONFIG: u8 = 0x02;
 /// `0x0A` — the clock. The 360 capture always sends date and time
 /// as `EA 07 <month> <day> <hour> <minute> <second>` about once a second; see
-/// [`time_payload`]. Earlier notes called this a mode switch with a counter because the
-/// capture froze one date and hour.
+/// [`time_payload`] and [`crate::Clock`]. Earlier notes called this a mode switch with a
+/// counter because the capture froze one date and hour. [`Command::ModeSwitch`] keeps
+/// the historical typed name; the payload is the wall clock, not a mode or a counter.
 /// Requires a non-empty payload: an empty `0x0A` is a silent no-op.
 pub const CMD_MODE_SWITCH: u8 = 0x0A;
 /// `0x0F` — begin image upload. Captured three times, immediately before the frames.
@@ -105,11 +106,6 @@ pub const INIT_STEP_06_PAYLOAD: [u8; 1] = [0x01];
 /// `0x17` payload. The vendor sends `--` (two ASCII hyphens) in every block.
 pub const INIT_STEP_17_PAYLOAD: [u8; 2] = [0x2D, 0x2D];
 
-/// The fixed prefix of every `0x0A` payload in the 360 capture: `EA 07 0B 12 0A`.
-pub const MODE_SWITCH_PREFIX: [u8; 5] = [0xEA, 0x07, 0x0B, 0x12, 0x0A];
-/// Full `0x0A` payload length: the prefix plus a two-byte counter.
-pub const MODE_SWITCH_PAYLOAD_LEN: usize = 7;
-
 /// Full `0x0A` payload length: two header bytes plus month, day, hour, minute, second.
 pub const TIME_PAYLOAD_LEN: usize = 7;
 
@@ -117,10 +113,14 @@ pub const TIME_PAYLOAD_LEN: usize = 7;
 /// payload is `EA 07 <month> <day> <hour> <minute> <second>`, sent about once a second,
 /// and it tracks the wall clock. What earlier notes called a "counter" was the seconds
 /// byte, and the `0B 12 0A` prefix was the capture's own date and hour frozen at that
-/// moment.
+/// moment (`re/findings/22-clock.md`).
 pub const TIME_HEADER: [u8; 2] = [0xEA, 0x07];
 
-pub fn time_payload(
+/// Builds the seven `0x0A` bytes: `EA 07 <month> <day> <hour> <minute> <second>`.
+///
+/// There is no counter. [`crate::Clock`] keeps the five values together and is the type
+/// the init sequence and the upload preamble take, so no call site can freeze one date.
+pub const fn time_payload(
     month: u8,
     day: u8,
     hour: u8,
@@ -135,26 +135,6 @@ pub fn time_payload(
         hour,
         minute,
         second,
-    ]
-}
-
-/// Builds the captured `0x0A` payload.
-///
-/// The final two bytes are a **big-endian** counter that increments by one on every
-/// send (`2C 3A`, `2C 3B`, `2D 00`, …). Its purpose is **unknown**; it is modelled as a
-/// caller-supplied sequence number, not as a mode selector. The vendor uses the same
-/// prefix before, during and after uploads, so this payload does not by itself prove a
-/// mode change.
-pub fn mode_switch_payload(counter: u16) -> [u8; MODE_SWITCH_PAYLOAD_LEN] {
-    let [high, low] = counter.to_be_bytes();
-    [
-        MODE_SWITCH_PREFIX[0],
-        MODE_SWITCH_PREFIX[1],
-        MODE_SWITCH_PREFIX[2],
-        MODE_SWITCH_PREFIX[3],
-        MODE_SWITCH_PREFIX[4],
-        high,
-        low,
     ]
 }
 
@@ -194,8 +174,8 @@ pub const INIT_SET: [u8; 12] = [
 /// **History only**: no code path reads these. They are kept so a future change can
 /// see exactly what was replaced, and so nobody mistakes them for 360 facts.
 pub mod legacy_240 {
-    /// The old "Machine Info mode" payload. The 360 uses one prefix plus a counter for
-    /// every `0x0A`, in all modes.
+    /// The old "Machine Info mode" payload. The 360 sends the local date and time on
+    /// every `0x0A` instead (`re/findings/22-clock.md`).
     pub const MACHINE_INFO_MODE_PAYLOAD: [u8; 7] = [0xEA, 0x07, 0x02, 0x02, 0x02, 0x27, 0x21];
     /// The old `0x02` payload.
     pub const DISPLAY_CONFIG_PAYLOAD: [u8; 5] = [0x01, 0x00, 0x00, 0x01, 0x24];
@@ -207,8 +187,8 @@ pub mod legacy_240 {
     /// The old init `0x08` payload; the 360 sends an empty payload.
     pub const INIT_STEP_08_PAYLOAD: [u8; 2] = [0x00, 0x04];
 
-    /// The old image-mode `0x0A` payload. The 360 uses one prefix plus a counter for
-    /// every `0x0A`, before, during and after uploads.
+    /// The old image-mode `0x0A` payload. The 360 sends the clock on every `0x0A`,
+    /// before, during and after uploads.
     pub const UPLOAD_MODE_SWITCH_PAYLOAD: [u8; 8] =
         [0xEA, 0x07, 0x08, 0x09, 0x11, 0x3A, 0x09, 0x00];
     /// The old `0x01` display-update payload from the 240 preamble.
@@ -298,11 +278,11 @@ impl Command {
 
     /// The pipe this command is sent on.
     ///
-    /// `0x0A` is the awkward one. The working init sequence sends it on the init
-    /// pipe, where it is silent yet demonstrably changes the mode; the data pipe
-    /// echoes it only when the payload is non-empty, and no effect has been
-    /// observed there. The driver keeps it on the init pipe, where the effect is
-    /// proven, and enforces the payload because empty is a no-op on both.
+    /// `0x0A` is the awkward one. The working init sequence sends the clock on the init
+    /// pipe, where the byte itself is silent; the data pipe echoes it only when the
+    /// payload is non-empty, and no effect has been observed there. The driver keeps it
+    /// on the init pipe, where the handshake is proven, and enforces the payload because
+    /// an empty clock is a no-op on both.
     pub const fn pipe(self) -> Pipe {
         match self {
             Self::Telemetry | Self::Status => Pipe::Data,
@@ -510,12 +490,15 @@ pub const COMMANDS: &[CommandInfo] = &[
     },
     CommandInfo {
         code: CMD_MODE_SWITCH,
-        name: "mode-switch",
+        name: "clock",
         pipe: Pipe::Init,
         presence: Evidence::Verified,
         semantics: Evidence::Inferred,
-        note: "captured payload EA 07 0B 12 0A + big-endian counter; the counter's \
-               purpose is unknown; empty payload is a silent no-op",
+        note: "the panel's clock: EA 07 <month> <day> <hour> <minute> <second>, sent \
+               about once a second; what earlier notes read as a frozen prefix and a \
+               big-endian counter was the capture's own date, hour and seconds, and the \
+               payload tracks the wall clock (re/findings/22-clock.md); empty payload is \
+               a silent no-op",
     },
     CommandInfo {
         code: 0x0B,
@@ -766,7 +749,7 @@ pub const OBSERVED_COMMANDS: &[ObservedCommand] = &[
         sources: &["re/reports/explore-20261117-175646.json"],
     },
     // 0x0A - silent on init, payload-gated on data. An empty payload is a no-op.
-    // The driver still sends the mode switch on init, where the effect is proven.
+    // The payload is the clock; the driver sends it on init, where the handshake is proven.
     ObservedCommand {
         code: 0x0A,
         pipes: &[Pipe::Data],
@@ -1028,16 +1011,16 @@ mod tests {
     }
 
     #[test]
-    fn only_mode_switch_is_payload_gated() {
+    fn only_the_clock_is_payload_gated() {
         let gated: Vec<u8> = OBSERVED_COMMANDS
             .iter()
             .filter(|entry| entry.payload_gated)
             .map(|entry| entry.code)
             .collect();
         assert_eq!(gated, vec![0x0A]);
-        let mode_switch = observed(0x0A).unwrap();
-        assert!(mode_switch.recognised_on(Pipe::Data));
-        assert!(!mode_switch.recognised_on(Pipe::Init));
+        let clock = observed(0x0A).unwrap();
+        assert!(clock.recognised_on(Pipe::Data));
+        assert!(!clock.recognised_on(Pipe::Init));
         assert!(Command::ModeSwitch.requires_payload());
     }
 
@@ -1128,28 +1111,14 @@ mod tests {
     }
 
     #[test]
-    fn the_clock_payload_carries_the_vendor_date_and_time() {
-        // re/captures/usbpcap-time-sync.pcap: 2026-11-19 10:11:46.
-        assert_eq!(
-            time_payload(11, 19, 10, 11, 46),
-            [0xEA, 0x07, 0x0B, 0x13, 0x0A, 0x0B, 0x2E]
-        );
-        assert_eq!(time_payload(1, 2, 3, 4, 5).len(), TIME_PAYLOAD_LEN);
-        assert_eq!(&time_payload(1, 2, 3, 4, 5)[..2], &TIME_HEADER);
-    }
-
-    #[test]
-    fn mode_switch_payload_is_the_captured_prefix_plus_big_endian_counter() {
-        // The first captured block ends with EA 07 0B 12 0A 2C 3A.
-        assert_eq!(
-            mode_switch_payload(0x2C3A),
-            [0xEA, 0x07, 0x0B, 0x12, 0x0A, 0x2C, 0x3A]
-        );
-        // The next send is 2C 3B, then 2D 00: a big-endian increment, not little-endian.
-        assert_eq!(mode_switch_payload(0x2C3B)[5..], [0x2C, 0x3B]);
-        assert_eq!(mode_switch_payload(0x2D00)[5..], [0x2D, 0x00]);
-        assert_eq!(&MODE_SWITCH_PREFIX[..], &mode_switch_payload(0)[..5]);
-        assert_eq!(mode_switch_payload(0).len(), MODE_SWITCH_PAYLOAD_LEN);
+    fn the_clock_payload_header_and_field_order_are_the_capture_shape() {
+        // re/captures/usbpcap-time-sync.pcap, 2026-11-19 10:11:46. The point of the
+        // test is the layout, not that one date: the header is fixed and the five
+        // values follow in calendar order.
+        let payload = time_payload(11, 19, 10, 11, 46);
+        assert_eq!(payload.len(), TIME_PAYLOAD_LEN);
+        assert_eq!(&payload[..2], &TIME_HEADER);
+        assert_eq!(payload[2..], [11, 19, 10, 11, 46]);
     }
 
     #[test]
@@ -1204,8 +1173,8 @@ mod tests {
         );
         assert_eq!(legacy_240::UPLOAD_COMMIT_PAYLOAD, [0x01, 0x01]);
         assert_ne!(
-            mode_switch_payload(0x2C3A)[..5],
-            legacy_240::MACHINE_INFO_MODE_PAYLOAD[..5]
+            crate::Clock::zero().payload(),
+            legacy_240::MACHINE_INFO_MODE_PAYLOAD
         );
         assert_ne!(
             display_config_payload(Rotation::ZERO),

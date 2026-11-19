@@ -7,7 +7,7 @@ use std::time::Instant;
 use mystique_ipc::{args, cmd, codes, CommandError, Request, Response, UploadKind};
 
 use super::{failed, ok, parse};
-use crate::core::Core;
+use crate::core::{local_clock, Core};
 use crate::error;
 use crate::upload::{self, PendingUpload};
 
@@ -31,10 +31,11 @@ impl Core {
             Err(error) => return failed(request, error),
         };
         let content_id = upload::fresh_content_id(&media.frames);
-        let (_plan, summary) = match upload::make_plan(&self.settings, path, &media, content_id) {
-            Ok(value) => value,
-            Err(error) => return failed(request, error),
-        };
+        let (_plan, summary) =
+            match upload::make_plan(&self.settings, path, &media, content_id, local_clock()) {
+                Ok(value) => value,
+                Err(error) => return failed(request, error),
+            };
         self.pending_upload = Some(PendingUpload {
             path: path.to_path_buf(),
             kind,
@@ -112,10 +113,11 @@ impl Core {
                 (media, content_id)
             }
         };
-        let (plan, summary) = match upload::make_plan(&self.settings, path, &media, content_id) {
-            Ok(value) => value,
-            Err(error) => return failed(request, error),
-        };
+        let (plan, summary) =
+            match upload::make_plan(&self.settings, path, &media, content_id, local_clock()) {
+                Ok(value) => value,
+                Err(error) => return failed(request, error),
+            };
 
         // An upload enters image mode, and a failed attempt can leave the panel there.
         // Stop the stream before the first transfer so a 0x01 frame never follows a

@@ -187,15 +187,21 @@ The captured upload sequence is:
 
 ```text
 0x12, 0x02, 0x03, 0x04, 0x07, 0x08, 0x05, 0x0B, 0x06,
-0x15 <CPU name>, 0x16 <GPU name>, 0x17 "--", 0x0A <heartbeat>
+0x15 <CPU name>, 0x16 <GPU name>, 0x17 "--", 0x0A <local date and time>
 0x14                      erase
 0x0F                      begin
 DCLd header (64 bytes, own transfer)
 JPEG chunks (64 bytes each, last partial)
 dcldfinish (55 bytes, own transfer)
 0x08 [01]                 commit
-0x0A <heartbeat>, 0x10, 0x12
+0x0A <local date and time>, 0x10, 0x12
 ```
+
+`0x0A` is the panel's clock: `EA 07 <month> <day> <hour> <minute> <second>`, sent about
+once a second (`re/findings/22-clock.md`). It is not a mode switch and the last bytes are
+not a counter — the "frozen prefix" was the capture's own date and hour. The init
+sequence and the upload preamble carry the same live reading; a caller with no clock
+source passes an explicit zero `Clock` rather than a plausible-looking date.
 
 The vendor repeats the init block continuously while the panel is active; it is a
 keepalive, not a one-time handshake.
@@ -420,7 +426,7 @@ the same question, and `0x0A` is the proof.
 | `0x07` | init-step-0x07 | init | init | Verified | Unknown | captured payload is empty on this 360; the settings capture maps index 0 to image switch time (3/5/7 s) and index 1 to animation |
 | `0x08` | init-step-0x08 | init | init | Verified | Unknown | captured init payload is empty; upload commit is `01` |
 | `0x09` | unknown-0x09 | init | init | Verified | Unknown | captured twice, payload `01` then `00`; not in either sequence; semantics unknown |
-| `0x0A` | mode-switch | init | data, only with a payload | Verified | Inferred | captured payload `EA 07 0B 12 0A` + big-endian counter; the counter's purpose is unknown; empty payload is a silent no-op |
+| `0x0A` | clock | init | data, only with a payload | Verified | Inferred | the panel's clock: `EA 07 <month> <day> <hour> <minute> <second>`, sent about once a second; what earlier notes read as a frozen prefix plus a big-endian counter was the capture's own date, hour and seconds (`re/findings/22-clock.md`); empty payload is a silent no-op |
 | `0x0B` | init-step-0x0B | init | init | Verified | Unknown | empty payload |
 | `0x0C` | unknown-0x0C | init | init | Verified | Unknown | newly recognised; semantics unknown |
 | `0x0D` | unknown-0x0D | init | init | Verified | Unknown | newly recognised; semantics unknown |

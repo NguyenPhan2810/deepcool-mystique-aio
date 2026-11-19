@@ -18,6 +18,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod clock;
 pub mod commands;
 pub mod dcl;
 pub mod display;
@@ -33,10 +34,10 @@ pub mod status;
 pub mod telemetry;
 pub mod upload;
 
+pub use clock::Clock;
 pub use commands::{
-    label_payload, mode_switch_payload, time_payload, Command, CommandInfo, Evidence,
-    ObservedCommand, COMMANDS, LABEL_MAX_LEN, MODE_SWITCH_PREFIX, OBSERVED_COMMANDS, TIME_HEADER,
-    TIME_PAYLOAD_LEN,
+    label_payload, time_payload, Command, CommandInfo, Evidence, ObservedCommand, COMMANDS,
+    LABEL_MAX_LEN, OBSERVED_COMMANDS, TIME_HEADER, TIME_PAYLOAD_LEN,
 };
 pub use dcl::{
     build_header as build_dcld_header, ContentId, DCLD_HEADER_LEN, DCLD_KIND_ANIMATED,
