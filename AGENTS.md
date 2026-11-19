@@ -30,6 +30,12 @@ grows past that.
   a 240-derived protocol already failed on this 360.
 - The 48-byte packet, its checksum, and the pipe each command uses are load-bearing. A command
   sent on the wrong pipe looks exactly like a command that does not exist.
+- **A byte that advances on every packet is not automatically a counter.** Compare it with
+  the wall clock before naming it: seconds roll at 60, minutes at 60, and a "constant
+  prefix" may be the capture's own date and hour. `0x0A` was labelled a heartbeat for a day
+  because nobody checked that its "counter" incremented once per second
+  (`re/findings/22-clock.md`). `re/tools/scan_timeline.py` exists for exactly this: print
+  only the changes, then line them up against the time of the capture.
 
 ## Device ownership
 
