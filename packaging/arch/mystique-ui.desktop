@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=MYSTIQUE LCD Control
+GenericName=DeepCool AIO LCD Control
+Comment=Drive the DeepCool MYSTIQUE AIO LCD: telemetry, rotation, brightness, images
+Exec=mystique-ui
+TryExec=mystique-ui
+Icon=mystique
+Terminal=false
+Categories=System;
+Keywords=deepcool;mystique;aio;lcd;cooler;fan;
+StartupWMClass=mystique-ui
+StartupNotify=true

@@ -1,0 +1,47 @@
+# Maintainer: Nguyen Phan <nguyen@nguyenphan.org>
+pkgname=mystique
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="DeepCool MYSTIQUE AIO LCD: daemon, CLI and Tauri control UI"
+arch=('x86_64')
+url="https://git.nguyenphan.org/nguyenphan/Deepcool-AIO-LCD"
+license=('MIT' 'Apache-2.0')
+depends=('gtk3' 'webkit2gtk-4.1' 'libayatana-appindicator' 'hicolor-icon-theme')
+makedepends=('cargo' 'rust' 'pkgconf')
+install=mystique.install
+# The daemon and the UI are one product: the UI is a client of the daemon's
+# control socket and cannot drive the panel on its own.
+source=("git+ssh://git@git.nguyenphan.org/nguyenphan/Deepcool-AIO-LCD.git#branch=main")
+sha256sums=('SKIP')
+
+build() {
+  cd "$srcdir/Deepcool-AIO-LCD"
+  # --locked: the workspace ships a Cargo.lock and the package must not resolve
+  # new versions behind the owner's back.
+  cargo build --release --workspace --locked
+}
+
+package() {
+  cd "$srcdir/Deepcool-AIO-LCD"
+
+  install -Dm755 rust/target/release/mystique        "$pkgdir/usr/bin/mystique"
+  install -Dm755 rust/target/release/mystique-daemon "$pkgdir/usr/bin/mystique-daemon"
+  install -Dm755 rust/target/release/mystique-ui     "$pkgdir/usr/bin/mystique-ui"
+
+  # Per-user unit: the panel is a display and the udev rule grants the seated
+  # user access, so the daemon never needs root.
+  install -Dm644 packaging/linux/mystique-daemon.service \
+    "$pkgdir/usr/lib/systemd/user/mystique-daemon.service"
+
+  # Packaged rule. A host that needs an explicit ACL (see
+  # re/findings/23-linux-bringup.md) overrides it from /etc/udev/rules.d/,
+  # which takes precedence for an identical file name.
+  install -Dm644 packaging/linux/99-mystique.rules \
+    "$pkgdir/usr/lib/udev/rules.d/99-mystique.rules"
+
+  install -Dm644 packaging/arch/mystique-ui.desktop \
+    "$pkgdir/usr/share/applications/mystique-ui.desktop"
+  install -Dm644 rust/apps/mystique-ui/icons/icon.png \
+    "$pkgdir/usr/share/icons/hicolor/32x32/apps/mystique.png"
+  install -Dm644 rust/README.md "$pkgdir/usr/share/doc/mystique/README.md"
+}
