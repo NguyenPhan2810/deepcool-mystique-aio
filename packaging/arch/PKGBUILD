@@ -15,7 +15,7 @@ source=("git+ssh://git@git.nguyenphan.org/nguyenphan/Deepcool-AIO-LCD.git#branch
 sha256sums=('SKIP')
 
 build() {
-  cd "$srcdir/Deepcool-AIO-LCD"
+  cd "$srcdir/Deepcool-AIO-LCD/rust"
   # --locked: the workspace ships a Cargo.lock and the package must not resolve
   # new versions behind the owner's back.
   cargo build --release --workspace --locked
