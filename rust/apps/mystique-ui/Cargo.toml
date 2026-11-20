@@ -27,3 +27,11 @@ tokio.workspace = true
 # Embed the static `ui/` directory in the binary. No dev server, no Node toolchain.
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
+
+# Linux tray: force tray-icon's StatusNotifierItem backend (ksni) instead of the
+# default libappindicator one. libappindicator is menu-only and never reports a
+# click, so left-clicking the tray could not open the window; ksni maps Activate
+# to a left click and keeps the menu on right click. Cargo unifies features, so
+# this does not remove libappindicator — tray-icon picks ksni whenever it is on.
+[target.'cfg(target_os = "linux")'.dependencies]
+tray-icon = { version = "0.25", features = ["ksni"] }

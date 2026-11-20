@@ -1,12 +1,12 @@
 # Maintainer: Nguyen Phan <nguyen@nguyenphan.org>
 pkgname=mystique
 pkgver=0.1.0
-pkgrel=2
+pkgrel=3
 pkgdesc="DeepCool MYSTIQUE AIO LCD: daemon, CLI and Tauri control UI"
 arch=('x86_64')
 url="https://git.nguyenphan.org/nguyenphan/Deepcool-AIO-LCD"
 license=('MIT' 'Apache-2.0')
-depends=('gtk3' 'webkit2gtk-4.1' 'libayatana-appindicator' 'hicolor-icon-theme')
+depends=('gtk3' 'webkit2gtk-4.1' 'hicolor-icon-theme' 'xdotool')
 makedepends=('cargo' 'rust' 'pkgconf')
 install=mystique.install
 # !lto is required, not a preference: rusb uses libusb1-sys with the `vendored`
@@ -48,8 +48,10 @@ package() {
   install -Dm644 packaging/linux/99-mystique.rules \
     "$pkgdir/usr/lib/udev/rules.d/99-mystique.rules"
 
-  install -Dm644 packaging/arch/mystique-ui.desktop \
-    "$pkgdir/usr/share/applications/mystique-ui.desktop"
+  # The entry is named after the app identifier because `enableGTKAppId` makes
+  # GTK register that id; the desktop environment matches window -> entry by it.
+  install -Dm644 packaging/arch/org.nguyenphan.mystique-ui.desktop \
+    "$pkgdir/usr/share/applications/org.nguyenphan.mystique-ui.desktop"
   install -Dm644 rust/apps/mystique-ui/icons/icon.png \
     "$pkgdir/usr/share/icons/hicolor/32x32/apps/mystique.png"
   install -Dm644 rust/README.md "$pkgdir/usr/share/doc/mystique/README.md"

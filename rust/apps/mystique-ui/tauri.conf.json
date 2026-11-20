@@ -12,6 +12,7 @@
   },
   "app": {
     "withGlobalTauri": true,
+    "enableGTKAppId": true,
     "windows": [
       {
         "label": "main",

@@ -10,5 +10,5 @@ Icon=mystique
 Terminal=false
 Categories=System;
 Keywords=deepcool;mystique;aio;lcd;cooler;fan;
-StartupWMClass=mystique-ui
+StartupWMClass=org.nguyenphan.mystique-ui
 StartupNotify=true
