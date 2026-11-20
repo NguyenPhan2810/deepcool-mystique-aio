@@ -57,6 +57,25 @@ the `getfacl` output will show `user:<name>:rw-` without help.
 - UI: desktop entry `MYSTIQUE LCD Control`, icon at `hicolor/32x32/apps/mystique.png`.
 - The Python `linux/` driver was removed from the system; `linux/` as source is untouched.
 
+## Arch package
+
+`packaging/arch/PKGBUILD` builds `mystique` from this tree: `/usr/bin/{mystique,
+mystique-daemon, mystique-ui}`, the user unit, the udev rule, the desktop entry and the icon.
+Two traps, both found by building it:
+
+- **`options=(!lto)` is required.** `makepkg`'s `lto` option appends `-flto=auto` to `CFLAGS`,
+  and `rusb` uses `libusb1-sys` with `vendored`, so libusb is compiled from C by the `cc`
+  crate. The GCC LTO objects in that archive do not resolve at rustc's link step and the
+  build dies on undefined `libusb_*` symbols. The Rust release profile has no LTO, so nothing
+  is lost.
+- **The packaged unit must point at `/usr/bin`.** `packaging/linux/mystique-daemon.service`
+  is written for a hand install and hardcodes `%h/.local/bin/mystique-daemon`; installed
+  verbatim, the package's service fails with `status=203/EXEC`. `package()` rewrites the
+  path.
+
+Host-specific settings live outside the package on purpose: the ACL `RUN` in
+`/etc/udev/rules.d/` and the label drop-in in `~/.config/systemd/user/`.
+
 ## Not verified
 
 - Clock across a USB reset or power cycle.
