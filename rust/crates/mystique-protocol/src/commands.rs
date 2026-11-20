@@ -229,7 +229,14 @@ pub enum Command {
     InitStep07,
     InitStep08,
     Unknown09,
+    /// `0x0A` inside the init handshake. The init pipe only acknowledges this byte;
+    /// the panel's clock is driven by [`Command::Clock`] on the data pipe.
     ModeSwitch,
+    /// `0x0A` as the vendor sends it about once a second: the wall clock, on the
+    /// data pipe. The sweep found the init pipe ignores it even with a payload,
+    /// while the data pipe honours it (`re/findings/22-clock.md`,
+    /// `re/findings/11-sweep-results.md`).
+    Clock,
     InitStep0B,
     Unknown0C,
     Unknown0D,
@@ -259,6 +266,7 @@ impl Command {
             Self::InitStep08 => CMD_INIT_STEP_08,
             Self::Unknown09 => 0x09,
             Self::ModeSwitch => CMD_MODE_SWITCH,
+            Self::Clock => CMD_MODE_SWITCH,
             Self::InitStep0B => 0x0B,
             Self::Unknown0C => 0x0C,
             Self::Unknown0D => 0x0D,
@@ -285,14 +293,14 @@ impl Command {
     /// an empty clock is a no-op on both.
     pub const fn pipe(self) -> Pipe {
         match self {
-            Self::Telemetry | Self::Status => Pipe::Data,
+            Self::Telemetry | Self::Status | Self::Clock => Pipe::Data,
             _ => Pipe::Init,
         }
     }
 
     /// True when the firmware treats an empty payload as a silent no-op.
     pub const fn requires_payload(self) -> bool {
-        matches!(self, Self::ModeSwitch)
+        matches!(self, Self::ModeSwitch | Self::Clock)
     }
 
     /// The known command with this byte, or `None` for an unmodelled byte.
@@ -1022,6 +1030,19 @@ mod tests {
         assert!(clock.recognised_on(Pipe::Data));
         assert!(!clock.recognised_on(Pipe::Init));
         assert!(Command::ModeSwitch.requires_payload());
+    }
+
+    #[test]
+    fn the_periodic_clock_takes_the_data_pipe() {
+        // The sweep found the panel honours 0x0A on the data pipe only; the init pipe
+        // answers with a neutral ACK and the panel's own clock keeps running
+        // (re/findings/22-clock.md). Sending the wall clock on the init pipe therefore
+        // looked successful and changed nothing.
+        assert_eq!(Command::Clock.code(), CMD_MODE_SWITCH);
+        assert_eq!(Command::Clock.pipe(), Pipe::Data);
+        assert!(Command::Clock.requires_payload());
+        assert_eq!(Command::ModeSwitch.pipe(), Pipe::Init);
+        assert_eq!(Command::Clock.code(), Command::ModeSwitch.code());
     }
 
     #[test]

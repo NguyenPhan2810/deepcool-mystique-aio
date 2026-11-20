@@ -220,7 +220,7 @@ impl Core {
             return;
         };
         let payload = local_clock().payload();
-        let _ = panel.send(Command::ModeSwitch, &payload);
+        let _ = panel.send(Command::Clock, &payload);
         self.next_clock = now + Duration::from_secs(1);
     }
 
