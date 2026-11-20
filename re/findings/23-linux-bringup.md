@@ -76,6 +76,25 @@ Two traps, both found by building it:
 Host-specific settings live outside the package on purpose: the ACL `RUN` in
 `/etc/udev/rules.d/` and the label drop-in in `~/.config/systemd/user/`.
 
+## Tray clicks and window identity
+
+Two Linux-only gaps in the UI, both fixed in `ca8b042`:
+
+- **Tray left-click did nothing.** The build used tray-icon's `libappindicator` backend, which is
+  menu-only and never emits a click, so `show_menu_on_left_click(false)` was inert. Enabling
+  tray-icon's `ksni` feature switches to the StatusNotifierItem backend (tray-icon prefers ksni
+  whenever it is on): `Activate` becomes a left click, the menu stays on right click. ksni pulls
+  `muda-snapshot` while Tauri's defaults keep `muda-libxdo`, so `libxdo` (`xdotool`) is a build
+  and runtime dependency.
+- **No icon in the taskbar, window list or title.** Without `enableGTKAppId`, GTK registers no
+  application id and KDE cannot map the window to a `.desktop` entry. With it the id is the
+  bundle identifier, so the entry must be named `org.nguyenphan.mystique-ui.desktop`; the old
+  `mystique-ui.desktop` name matched nothing.
+
+The icon itself was a 32x32 placeholder, which the tray upscaled into a blurry box. It is now
+`icons/logo.svg` (LCD face, telemetry trace, pump bar, radiator fins) rendered to 16..512 and
+packed into a multi-size `.ico`; the package installs every hicolor size.
+
 ## Not verified
 
 - Clock across a USB reset or power cycle.
