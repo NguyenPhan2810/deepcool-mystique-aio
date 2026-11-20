@@ -86,10 +86,14 @@ Two Linux-only gaps in the UI, both fixed in `ca8b042`:
   whenever it is on): `Activate` becomes a left click, the menu stays on right click. ksni pulls
   `muda-snapshot` while Tauri's defaults keep `muda-libxdo`, so `libxdo` (`xdotool`) is a build
   and runtime dependency.
-- **No icon in the taskbar, window list or title.** Without `enableGTKAppId`, GTK registers no
-  application id and KDE cannot map the window to a `.desktop` entry. With it the id is the
-  bundle identifier, so the entry must be named `org.nguyenphan.mystique-ui.desktop`; the old
-  `mystique-ui.desktop` name matched nothing.
+- **No icon in the taskbar, window list or title.** The window had no usable desktop
+  entry. `enableGTKAppId` registers the bundle identifier on D-Bus (`org.nguyenphan.mystique-ui`),
+  which gives single-instance behaviour, but it is **not** the Wayland surface app_id: a KWin
+  script dumping `desktopFileName` and `resourceClass` showed both as `mystique-ui`, the program
+  name GTK passes to the compositor. The entry must therefore be `mystique-ui.desktop`;
+  naming it after the identifier produced KDE's generic Wayland fallback icon. Plasma caches
+  app data, so seeing the change needed `systemctl --user restart plasma-plasmashell` once in
+  addition to a fresh window.
 
 The icon itself was a 32x32 placeholder, which the tray upscaled into a blurry box. It is now
 `icons/logo.svg` (LCD face, telemetry trace, pump bar, radiator fins) rendered to 16..512 and

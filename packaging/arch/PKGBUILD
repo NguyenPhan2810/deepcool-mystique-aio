@@ -1,7 +1,7 @@
 # Maintainer: Nguyen Phan <nguyen@nguyenphan.org>
 pkgname=mystique
 pkgver=0.1.0
-pkgrel=4
+pkgrel=5
 pkgdesc="DeepCool MYSTIQUE AIO LCD: daemon, CLI and Tauri control UI"
 arch=('x86_64')
 url="https://git.nguyenphan.org/nguyenphan/Deepcool-AIO-LCD"
@@ -48,10 +48,11 @@ package() {
   install -Dm644 packaging/linux/99-mystique.rules \
     "$pkgdir/usr/lib/udev/rules.d/99-mystique.rules"
 
-  # The entry is named after the app identifier because `enableGTKAppId` makes
-  # GTK register that id; the desktop environment matches window -> entry by it.
-  install -Dm644 packaging/arch/org.nguyenphan.mystique-ui.desktop \
-    "$pkgdir/usr/share/applications/org.nguyenphan.mystique-ui.desktop"
+  # The entry is named `mystique-ui.desktop` because that is the Wayland surface
+  # app_id KWin reports: GTK takes it from the program name, not from the GTK
+  # application id. The identifier only provides the D-Bus id / single instance.
+  install -Dm644 packaging/arch/mystique-ui.desktop \
+    "$pkgdir/usr/share/applications/mystique-ui.desktop"
   # Every size the desktop may ask for; KDE picks the nearest instead of
   # upscaling one small PNG.
   for size in 16 24 32 48 64 128 256 512; do
