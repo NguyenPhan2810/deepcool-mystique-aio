@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  MYSTIQUE control-panel mark.
+
+  Drawn as vector on purpose: one source renders every hicolor size and the
+  Windows .ico without resampling artefacts. Palette is the UI's own
+  (styles/base.css): surface #0f1419, screen #070b0e, accent #5ba7f0,
+  accent-dim #2e5a80, text #edf2f7.
+
+  Shapes are deliberately few and thick so the mark still reads at 16x16:
+  an LCD face, one telemetry trace, one pump bar, radiator fins either side.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- tile -->
+  <rect x="0" y="0" width="512" height="512" rx="104" fill="#0f1419"/>
+  <rect x="6" y="6" width="500" height="500" rx="100" fill="none" stroke="#1e2a36" stroke-width="8"/>
+
+  <!-- radiator fins -->
+  <rect x="62" y="184" width="22" height="144" rx="11" fill="#2e5a80"/>
+  <rect x="428" y="184" width="22" height="144" rx="11" fill="#2e5a80"/>
+
+  <!-- LCD face -->
+  <rect x="108" y="136" width="296" height="240" rx="32" fill="#070b0e"
+        stroke="#5ba7f0" stroke-width="16"/>
+
+  <!-- telemetry trace -->
+  <polyline points="152,268 196,212 240,286 284,196 328,258 360,226"
+            fill="none" stroke="#edf2f7" stroke-width="20"
+            stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- pump bar -->
+  <rect x="192" y="316" width="128" height="22" rx="11" fill="#5ba7f0"/>
+</svg>

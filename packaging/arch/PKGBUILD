@@ -1,7 +1,7 @@
 # Maintainer: Nguyen Phan <nguyen@nguyenphan.org>
 pkgname=mystique
 pkgver=0.1.0
-pkgrel=3
+pkgrel=4
 pkgdesc="DeepCool MYSTIQUE AIO LCD: daemon, CLI and Tauri control UI"
 arch=('x86_64')
 url="https://git.nguyenphan.org/nguyenphan/Deepcool-AIO-LCD"
@@ -52,7 +52,11 @@ package() {
   # GTK register that id; the desktop environment matches window -> entry by it.
   install -Dm644 packaging/arch/org.nguyenphan.mystique-ui.desktop \
     "$pkgdir/usr/share/applications/org.nguyenphan.mystique-ui.desktop"
-  install -Dm644 rust/apps/mystique-ui/icons/icon.png \
-    "$pkgdir/usr/share/icons/hicolor/32x32/apps/mystique.png"
+  # Every size the desktop may ask for; KDE picks the nearest instead of
+  # upscaling one small PNG.
+  for size in 16 24 32 48 64 128 256 512; do
+    install -Dm644 "rust/apps/mystique-ui/icons/icon-${size}.png" \
+      "$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps/mystique.png"
+  done
   install -Dm644 rust/README.md "$pkgdir/usr/share/doc/mystique/README.md"
 }
