@@ -1,7 +1,7 @@
 # Maintainer: Nguyen Phan <nguyen@nguyenphan.org>
 pkgname=mystique
 pkgver=0.1.0
-pkgrel=1
+pkgrel=2
 pkgdesc="DeepCool MYSTIQUE AIO LCD: daemon, CLI and Tauri control UI"
 arch=('x86_64')
 url="https://git.nguyenphan.org/nguyenphan/Deepcool-AIO-LCD"
@@ -35,8 +35,11 @@ package() {
   install -Dm755 rust/target/release/mystique-ui     "$pkgdir/usr/bin/mystique-ui"
 
   # Per-user unit: the panel is a display and the udev rule grants the seated
-  # user access, so the daemon never needs root.
+  # user access, so the daemon never needs root. The shipped unit is written for
+  # a hand install under ~/.local/bin; a package must point at /usr/bin.
   install -Dm644 packaging/linux/mystique-daemon.service \
+    "$pkgdir/usr/lib/systemd/user/mystique-daemon.service"
+  sed -i 's|%h/\.local/bin/mystique-daemon|/usr/bin/mystique-daemon|' \
     "$pkgdir/usr/lib/systemd/user/mystique-daemon.service"
 
   # Packaged rule. A host that needs an explicit ACL (see
