@@ -88,7 +88,9 @@ at 1–30 Hz, fan and pump RPM on the dual dial, daemon surviving UI close.
   Check this before making 30 Hz a default; 1 Hz remains the default.
 - The UI's browser-pass was done with a stubbed bridge; the live daemon→panel event path was
   verified separately in the terminal but should be re-checked in the final UI.
-- **Linux has not been run at all.** Everything so far is Windows.
+- **Linux ran on 2026-11-20** — first native build, 409 tests, daemon and Tauri UI on the
+  real panel. It exposed a cross-platform clock bug (`0x0A` was routed to the init pipe);
+  see `re/findings/23-linux-bringup.md`.
 
 ## How to run
 
@@ -138,9 +140,9 @@ replug; restarting the service is not enough.
 Nothing. The stream-rate control (1/5/10/20/30 Hz presets, transfer counters in the session
 sheet) and the mode selector's `0x03` write are both shipped and working against the daemon.
 
-Next milestone: **Linux packaging** — udev rule, systemd unit, and the first build on the
-target OS. Everything so far has run on Windows; that is the one claim the project still
-cannot make.
+Linux packaging landed on 2026-11-20 — udev rule, per-user systemd unit, desktop entry, and
+an Arch package built from this tree. Next milestone: a tagged release with versioned
+artifacts, and a real reboot test of the boot-time start (`re/findings/23-linux-bringup.md`).
 
 ## Machine-change log (for honesty, not blame)
 
