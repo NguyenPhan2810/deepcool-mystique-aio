@@ -6,6 +6,17 @@ before anyone logs on.
 
 No firmware flashing path exists anywhere in this repository.
 
+## Platforms
+
+| | |
+|---|---|
+| **Windows** | `MystiqueService` (C#) plus the Rust daemon and Tauri control panel in `rust/` |
+| **Linux** | the Rust daemon, Tauri control panel and CLI in `rust/`; packaging in `packaging/arch/` |
+
+Same device everywhere: USB `3633:0009`, vendor-specific class, one process owns it at a time.
+The protocol record lives in `re/findings/` — that is the part worth reading if you are writing
+your own driver for this cooler.
+
 ## Why this exists
 
 DeepCool's own app drives the panel, but it repeatedly tears down a healthy
