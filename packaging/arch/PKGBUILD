@@ -1,7 +1,7 @@
 # Maintainer: Nguyen Phan <nguyen@nguyenphan.org>
 pkgname=mystique
-pkgver=0.1.0
-pkgrel=5
+pkgver=0.1.1
+pkgrel=1
 pkgdesc="DeepCool MYSTIQUE AIO LCD: daemon, CLI and Tauri control UI"
 arch=('x86_64')
 url="https://git.nguyenphan.org/nguyenphan/Deepcool-AIO-LCD"
