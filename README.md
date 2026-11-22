@@ -20,7 +20,7 @@ your own driver for this cooler.
 ## Installing on Linux
 
 There is no AUR package: Arch closed new AUR account registration in June 2026. Install the
-release package with `pacman -U`, or build this repository's `packaging/aur/PKGBUILD` with
+release package with `pacman -U`, or build this repository's `packaging/arch/PKGBUILD` with
 `makepkg -si`. Both install the daemon, the control panel and the CLI; see the latest release
 for the artifact and the unit-enable steps.
 

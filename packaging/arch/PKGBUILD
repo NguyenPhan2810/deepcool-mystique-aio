@@ -1,63 +1,50 @@
 # Maintainer: Nguyen Phan <nguyen@nguyenphan.org>
-pkgname=mystique
+pkgname=deepcool-mystique-aio
 pkgver=0.1.1
 pkgrel=1
-pkgdesc="DeepCool MYSTIQUE AIO LCD: daemon, CLI and Tauri control UI"
+pkgdesc="Driver and control panel for the DeepCool MYSTIQUE AIO LCD"
 arch=('x86_64')
-url="https://git.nguyenphan.org/nguyenphan/Deepcool-AIO-LCD"
+url="https://github.com/NguyenPhan2810/deepcool-mystique-aio"
 license=('MIT' 'Apache-2.0')
 depends=('gtk3' 'webkit2gtk-4.1' 'hicolor-icon-theme' 'xdotool')
 makedepends=('cargo' 'rust' 'pkgconf')
-install=mystique.install
-# !lto is required, not a preference: rusb uses libusb1-sys with the `vendored`
-# feature, so libusb is compiled from C by the cc crate. makepkg's `lto` option
-# adds -flto=auto to CFLAGS, and those GCC LTO objects do not resolve when rustc
-# links the binary (undefined libusb_* symbols). The Rust release profile does not
-# enable LTO, so nothing is lost.
+install="$pkgname.install"
+# Vendored libusb is C; makepkg's LTO flags break the link step.
 options=(!lto)
-# The daemon and the UI are one product: the UI is a client of the daemon's
-# control socket and cannot drive the panel on its own.
-source=("git+ssh://git@git.nguyenphan.org/nguyenphan/Deepcool-AIO-LCD.git#branch=main")
-sha256sums=('SKIP')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
+sha256sums=('967917fee323e48326cf8a75d8d45abbcf82cdbf4ededd85e64813e7e5525e78')
 
 build() {
-  cd "$srcdir/Deepcool-AIO-LCD/rust"
-  # --locked: the workspace ships a Cargo.lock and the package must not resolve
-  # new versions behind the owner's back.
+  cd "$srcdir/$pkgname-$pkgver/rust"
   cargo build --release --workspace --locked
 }
 
 package() {
-  cd "$srcdir/Deepcool-AIO-LCD"
+  cd "$srcdir/$pkgname-$pkgver"
 
   install -Dm755 rust/target/release/mystique        "$pkgdir/usr/bin/mystique"
   install -Dm755 rust/target/release/mystique-daemon "$pkgdir/usr/bin/mystique-daemon"
   install -Dm755 rust/target/release/mystique-ui     "$pkgdir/usr/bin/mystique-ui"
 
-  # Per-user unit: the panel is a display and the udev rule grants the seated
-  # user access, so the daemon never needs root. The shipped unit is written for
-  # a hand install under ~/.local/bin; a package must point at /usr/bin.
+  # Per-user unit; the shipped copy targets a ~/.local/bin install, a package does not.
   install -Dm644 packaging/linux/mystique-daemon.service \
     "$pkgdir/usr/lib/systemd/user/mystique-daemon.service"
   sed -i 's|%h/\.local/bin/mystique-daemon|/usr/bin/mystique-daemon|' \
     "$pkgdir/usr/lib/systemd/user/mystique-daemon.service"
 
-  # Packaged rule. A host that needs an explicit ACL (see
-  # re/findings/23-linux-bringup.md) overrides it from /etc/udev/rules.d/,
-  # which takes precedence for an identical file name.
+  # Hosts that need an explicit ACL override this from /etc/udev/rules.d/.
   install -Dm644 packaging/linux/99-mystique.rules \
     "$pkgdir/usr/lib/udev/rules.d/99-mystique.rules"
 
-  # The entry is named `mystique-ui.desktop` because that is the Wayland surface
-  # app_id KWin reports: GTK takes it from the program name, not from the GTK
-  # application id. The identifier only provides the D-Bus id / single instance.
+  # The entry is named after the Wayland app id KWin reports, not the bundle identifier.
   install -Dm644 packaging/arch/mystique-ui.desktop \
     "$pkgdir/usr/share/applications/mystique-ui.desktop"
-  # Every size the desktop may ask for; KDE picks the nearest instead of
-  # upscaling one small PNG.
+
   for size in 16 24 32 48 64 128 256 512; do
     install -Dm644 "rust/apps/mystique-ui/icons/icon-${size}.png" \
       "$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps/mystique.png"
   done
-  install -Dm644 rust/README.md "$pkgdir/usr/share/doc/mystique/README.md"
+
+  install -Dm644 LICENSE-MIT    "$pkgdir/usr/share/licenses/$pkgname/LICENSE-MIT"
+  install -Dm644 LICENSE-APACHE "$pkgdir/usr/share/licenses/$pkgname/LICENSE-APACHE"
 }

@@ -1,6 +1,7 @@
 post_install() {
   cat <<'EOF'
-mystique installs three binaries, a per-user daemon unit and a udev rule.
+deepcool-mystique-aio installs three binaries, a per-user daemon unit, a udev
+rule and a desktop entry.
 
   1. Reload udev so the panel is usable:
        sudo udevadm control --reload-rules
@@ -15,8 +16,8 @@ mystique installs three binaries, a per-user daemon unit and a udev rule.
 
   3. Launch "MYSTIQUE LCD Control" from the menu, or run mystique-ui.
 
-Exactly one process may own the panel. There is no Linux vendor service to stop;
-if another driver is running, stop it before starting this daemon.
+Exactly one process may own the panel. There is no Linux vendor service; if
+another driver is running, stop it before starting this daemon.
 EOF
 }
 
