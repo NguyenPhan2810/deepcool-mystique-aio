@@ -17,6 +17,13 @@ Same device everywhere: USB `3633:0009`, vendor-specific class, one process owns
 The protocol record lives in `re/findings/` — that is the part worth reading if you are writing
 your own driver for this cooler.
 
+## Installing on Linux
+
+There is no AUR package: Arch closed new AUR account registration in June 2026. Install the
+release package with `pacman -U`, or build this repository's `packaging/aur/PKGBUILD` with
+`makepkg -si`. Both install the daemon, the control panel and the CLI; see the latest release
+for the artifact and the unit-enable steps.
+
 ## Why this exists
 
 DeepCool's own app drives the panel, but it repeatedly tears down a healthy
