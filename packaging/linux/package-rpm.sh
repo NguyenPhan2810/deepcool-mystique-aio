@@ -47,6 +47,10 @@ install -m644 "$REPO_ROOT/docs/INSTALL-linux.md" "$stage/usr/share/doc/$NAME/REA
 tar -czf "$topdir/SOURCES/stage.tar.gz" -C "$stage" .
 
 cat > "$topdir/SPECS/$NAME.spec" <<EOF
+# Binaries arrive prebuilt; there is nothing for rpmbuild to take debuginfo from,
+# and an empty debugsource list aborts the build on Fedora.
+%global debug_package %{nil}
+
 Name:           $NAME
 Version:        $VERSION
 Release:        1%{?dist}
