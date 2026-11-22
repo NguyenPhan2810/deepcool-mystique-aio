@@ -7,7 +7,8 @@
 set -euo pipefail
 
 REPO_ROOT=$(cd "$(dirname "$0")/../.." && pwd)
-VERSION=${VERSION:?set VERSION (for example 0.1.1)}
+VERSION=${VERSION:-$(grep -m1 '^version' "$REPO_ROOT/rust/Cargo.toml" | cut -d'"' -f2)}
+[ -n "$VERSION" ] || { echo "cannot determine version; set VERSION" >&2; exit 1; }
 ARCH=${ARCH:-amd64}
 OUT=${OUT:-$REPO_ROOT/dist}
 BIN=$REPO_ROOT/rust/target/release

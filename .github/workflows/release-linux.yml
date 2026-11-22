@@ -15,9 +15,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Version
-        id: version
-        run: echo "value=$(grep -m1 '^version' rust/Cargo.toml | cut -d'\"' -f2)" >> "$GITHUB_OUTPUT"
 
       - name: System dependencies
         run: |
@@ -33,7 +30,7 @@ jobs:
         run: cargo build --release --workspace --locked
 
       - name: Package
-        run: VERSION="${{ steps.version.outputs.value }}" bash packaging/linux/package-deb.sh
+        run: bash packaging/linux/package-deb.sh
 
       - uses: actions/upload-artifact@v4
         with:
@@ -56,9 +53,6 @@ jobs:
 
       - uses: actions/checkout@v4
 
-      - name: Version
-        id: version
-        run: echo "value=$(grep -m1 '^version' rust/Cargo.toml | cut -d'\"' -f2)" >> "$GITHUB_OUTPUT"
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -67,7 +61,7 @@ jobs:
         run: cargo build --release --workspace --locked
 
       - name: Package
-        run: VERSION="${{ steps.version.outputs.value }}" bash packaging/linux/package-rpm.sh
+        run: bash packaging/linux/package-rpm.sh
 
       - uses: actions/upload-artifact@v4
         with:
