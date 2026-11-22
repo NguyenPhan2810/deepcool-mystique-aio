@@ -19,11 +19,20 @@ your own driver for this cooler.
 
 ## Installing on Linux
 
-There is no AUR package: Arch closed new AUR account registration in June 2026. Install the
-release package with `pacman -U`, or build this repository's `packaging/arch/PKGBUILD` with
-`makepkg -si`. Both install the daemon, the control panel and the CLI; see the latest release
-for the artifact and the unit-enable steps. Debian/Ubuntu, Fedora, openSUSE and Alpine are
-covered in [`docs/INSTALL-linux.md`](docs/INSTALL-linux.md).
+Prebuilt packages are attached to each release:
+
+| System | File |
+|---|---|
+| Arch | `mystique-<version>-1-x86_64.pkg.tar.zst` |
+| Debian / Ubuntu | `deepcool-mystique-aio_<version>_amd64.deb` |
+| Fedora | `deepcool-mystique-aio-<version>-1.fc*.x86_64.rpm` |
+
+There is no AUR package: Arch closed new account registration in June 2026. Every package
+installs the daemon, the UI and the CLI, the per-user systemd unit, the udev rule and the
+desktop entry; the enable steps are in the release notes.
+
+Other distributions build from source — [`docs/INSTALL-linux.md`](docs/INSTALL-linux.md) has
+per-distro dependencies, and notes that the daemon and CLI need no GTK/WebKit at all.
 
 ## Why this exists
 

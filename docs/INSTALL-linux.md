@@ -5,8 +5,9 @@ depend on no GTK, WebKit or desktop library at all. Only `mystique-ui` needs the
 stack. So a headless install on a server or a minimal distro is cheap; the UI is the expensive
 part.
 
-Arch has a package (`packaging/arch/PKGBUILD`, and the release tarball). On every other
-distribution the supported path is building from source — a prebuilt binary would be tied to
+Prebuilt packages are attached to each release: Arch (`pacman -U`), Debian/Ubuntu
+(`apt install ./file.deb`) and Fedora (`dnf install ./file.rpm`). The Arch PKGBUILD lives in
+`packaging/arch/`. On every other distribution the supported path is building from source — a prebuilt binary would be tied to
 this machine's glibc and WebKitGTK versions.
 
 ## 1. Toolchain and system libraries
