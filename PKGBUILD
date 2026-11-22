@@ -7,7 +7,7 @@ arch=('x86_64')
 url="https://github.com/NguyenPhan2810/deepcool-mystique-aio"
 license=('MIT' 'Apache-2.0')
 depends=('gtk3' 'webkit2gtk-4.1' 'hicolor-icon-theme' 'xdotool')
-makedepends=('cargo' 'rust' 'pkgconf')
+makedepends=('cargo' 'rust' 'pkgconf' 'libayatana-appindicator')
 install="$pkgname.install"
 # Vendored libusb is C; makepkg's LTO flags break the link step.
 options=(!lto)
