@@ -12,7 +12,7 @@ install="$pkgname.install"
 # Vendored libusb is C; makepkg's LTO flags break the link step.
 options=(!lto)
 source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
-sha256sums=('76b0ce26ebe80624da4e11f03f4b755f6bbc7ab6386f68a1fc003ac2cae84fa9')
+sha256sums=('967917fee323e48326cf8a75d8d45abbcf82cdbf4ededd85e64813e7e5525e78')
 
 build() {
   cd "$srcdir/$pkgname-$pkgver/rust"

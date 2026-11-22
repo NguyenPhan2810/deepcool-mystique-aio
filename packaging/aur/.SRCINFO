@@ -16,6 +16,6 @@ pkgbase = deepcool-mystique-aio
 	depends = xdotool
 	options = !lto
 	source = deepcool-mystique-aio-0.1.1.tar.gz::https://github.com/NguyenPhan2810/deepcool-mystique-aio/archive/v0.1.1.tar.gz
-	sha256sums = 76b0ce26ebe80624da4e11f03f4b755f6bbc7ab6386f68a1fc003ac2cae84fa9
+	sha256sums = 967917fee323e48326cf8a75d8d45abbcf82cdbf4ededd85e64813e7e5525e78
 
 pkgname = deepcool-mystique-aio
